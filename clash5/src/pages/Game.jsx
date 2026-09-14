@@ -1822,125 +1822,154 @@ function Game() {
     // =====================================================
 
     if (room.current_level === 3) {
-        const myClick =
-            player === "player1"
-                ? room.target_click1
-                : room.target_click2;
+    const myClick =
+        player === "player1"
+            ? room.target_click1
+            : room.target_click2;
 
-        return (
-            <div className="min-h-screen bg-[#F5F1E8] p-6">
-                <div className="max-w-5xl mx-auto">
+    return (
+        <div className="min-h-screen bg-[#F5F1E8] px-3 py-4 sm:p-6">
+            <div className="max-w-5xl mx-auto">
 
-                    <div className="flex justify-between items-center mb-8">
+                {/* HEADER */}
+                <div className="flex justify-between items-start mb-5 sm:mb-8">
 
-                        <div>
-                            <h1 className="text-4xl font-black">
-                                CLASH5
-                            </h1>
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-black leading-none">
+                            CLASH5
+                        </h1>
 
-                            <p className="font-bold">
-                                🎯 TARGET SMASH
-                            </p>
-                        </div>
-
-                        <div className="text-right">
-                            <p className="text-sm font-bold">
-                                ROUND
-                            </p>
-
-                            <p className="text-3xl font-black">
-                                {room.target_round}/5
-                            </p>
-                        </div>
-
+                        <p className="font-bold text-sm sm:text-base mt-1">
+                            🎯 TARGET SMASH
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="text-right">
+                        <p className="text-xs sm:text-sm font-bold">
+                            ROUND
+                        </p>
 
-                        <div className="bg-white border-4 border-black p-4">
-                            <p className="font-bold">
-                                {room.player1_name}
+                        <p className="text-2xl sm:text-3xl font-black">
+                            {room.target_round}/5
+                        </p>
+                    </div>
+
+                </div>
+
+                {/* SCORE */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+
+                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-4">
+                        <p className="font-bold text-xs sm:text-base truncate">
+                            {room.player1_name}
+                        </p>
+
+                        <p className="text-3xl sm:text-4xl font-black">
+                            {room.player1_target_score}
+                        </p>
+                    </div>
+
+                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-4">
+                        <p className="font-bold text-xs sm:text-base truncate">
+                            {room.player2_name}
+                        </p>
+
+                        <p className="text-3xl sm:text-4xl font-black">
+                            {room.player2_target_score}
+                        </p>
+                    </div>
+
+                </div>
+
+                {/* GAME AREA */}
+                <div
+                    className="
+                        relative
+                        bg-black
+                        w-full
+                        h-[65vh]
+                        min-h-[400px]
+                        max-h-[600px]
+                        overflow-hidden
+                    "
+                >
+
+                    {/* WAITING */}
+                    {room.target_status === "waiting" && (
+                        <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
+
+                            <p className="text-2xl sm:text-4xl font-black text-white">
+                                GET READY...
                             </p>
 
-                            <p className="text-4xl font-black">
-                                {room.player1_target_score}
-                            </p>
                         </div>
+                    )}
 
-                        <div className="bg-white border-4 border-black p-4">
-                            <p className="font-bold">
-                                {room.player2_name}
+                    {/* TARGET */}
+                    {room.target_status === "playing" &&
+                        !myClick && (
+                            <button
+                                onClick={handleTargetClick}
+                                aria-label="Hit target"
+                                className="
+                                    absolute
+                                    -translate-x-1/2
+                                    -translate-y-1/2
+                                    text-4xl
+                                    sm:text-5xl
+                                    p-2
+                                    touch-manipulation
+                                    hover:scale-125
+                                    active:scale-90
+                                    transition-transform
+                                "
+                                style={{
+                                    left: `${room.target_x}%`,
+                                    top: `${room.target_y}%`,
+                                }}
+                            >
+                                🎯
+                            </button>
+                        )}
+
+                    {/* WAITING FOR OPPONENT */}
+                    {room.target_status === "playing" &&
+                        myClick && (
+                            <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
+
+                                <p className="text-xl sm:text-3xl font-black text-white leading-tight">
+                                    WAITING FOR
+                                    <br className="sm:hidden" />
+                                    {" "}OPPONENT...
+                                </p>
+
+                            </div>
+                        )}
+
+                    {/* FINISHED */}
+                    {room.target_status === "finished" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-4 text-center">
+
+                            <p className="text-3xl sm:text-5xl font-black leading-tight">
+                                {room.target_winner === player
+                                    ? "YOU SMASHED IT! 🔥"
+                                    : "YOU LOST 😭"}
                             </p>
 
-                            <p className="text-4xl font-black">
+                            <p className="mt-4 sm:mt-6 text-xl sm:text-2xl font-black">
+                                {room.player1_target_score}
+                                {" — "}
                                 {room.player2_target_score}
                             </p>
+
                         </div>
+                    )}
 
-                    </div>
-
-                    <div className="relative bg-black w-full h-[550px] overflow-hidden">
-
-                        {room.target_status === "waiting" && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-
-                                <p className="text-white text-4xl font-black">
-                                    GET READY...
-                                </p>
-
-                            </div>
-                        )}
-
-                        {room.target_status === "playing" &&
-                            !myClick && (
-                                <button
-                                    onClick={
-                                        handleTargetClick
-                                    }
-                                    className="absolute -translate-x-1/2 -translate-y-1/2 text-5xl hover:scale-125 transition-transform"
-                                    style={{
-                                        left: `${room.target_x}%`,
-                                        top: `${room.target_y}%`,
-                                    }}
-                                >
-                                    🎯
-                                </button>
-                            )}
-
-                        {room.target_status === "playing" &&
-                            myClick && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-
-                                    <p className="text-white text-3xl font-black">
-                                        WAITING FOR OPPONENT...
-                                    </p>
-
-                                </div>
-                            )}
-
-                        {room.target_status === "finished" && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-
-                                <p className="text-5xl font-black">
-                                    {room.target_winner === player
-                                        ? "YOU SMASHED IT! 🔥"
-                                        : "YOU LOST 😭"}
-                                </p>
-
-                                <p className="mt-6 text-2xl font-black">
-                                    {room.player1_target_score}
-                                    {" — "}
-                                    {room.player2_target_score}
-                                </p>
-
-                            </div>
-                        )}
-
-                    </div>
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
     // =====================================================
     // LEVEL 4 UI
