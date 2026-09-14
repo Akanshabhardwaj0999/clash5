@@ -1607,185 +1607,215 @@ function Game() {
     // =====================================================
 
     if (room.current_level === 2) {
-        const sequence =
-            room.memory_sequence
-                ? JSON.parse(
-                    room.memory_sequence
-                )
-                : [];
+    const sequence = room.memory_sequence
+        ? JSON.parse(room.memory_sequence)
+        : [];
 
-        const myAnswer =
-            player === "player1"
-                ? room.memory_answer1
-                : room.memory_answer2;
+    const myAnswer =
+        player === "player1"
+            ? room.memory_answer1
+            : room.memory_answer2;
 
-        return (
-            <div className="min-h-screen bg-[#F5F1E8] p-6">
-                <div className="max-w-4xl mx-auto">
+    return (
+        <div className="min-h-screen bg-[#F5F1E8] px-3 py-4 sm:p-6">
+            <div className="max-w-4xl mx-auto">
 
-                    <div className="flex justify-between mb-10">
-                        <div>
-                            <h1 className="text-4xl font-black">
-                                CLASH5
-                            </h1>
+                {/* HEADER */}
+                <div className="flex items-start justify-between mb-6 sm:mb-10">
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-black leading-none">
+                            CLASH5
+                        </h1>
 
-                            <p className="font-bold">
-                                🧠 MEMORY CHAOS
-                            </p>
-                        </div>
-
-                        <div className="text-right">
-                            <p className="text-sm font-bold">
-                                ROUND
-                            </p>
-
-                            <p className="text-3xl font-black">
-                                {room.memory_round}/5
-                            </p>
-                        </div>
+                        <p className="font-bold text-sm sm:text-base mt-1">
+                            🧠 MEMORY CHAOS
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="text-right">
+                        <p className="text-xs sm:text-sm font-bold">
+                            ROUND
+                        </p>
 
-                        <div className="bg-white border-4 border-black p-5">
-                            <p className="font-bold">
-                                {room.player1_name}
-                            </p>
-
-                            <p className="text-4xl font-black">
-                                {room.player1_memory_score}
-                            </p>
-                        </div>
-
-                        <div className="bg-white border-4 border-black p-5">
-                            <p className="font-bold">
-                                {room.player2_name}
-                            </p>
-
-                            <p className="text-4xl font-black">
-                                {room.player2_memory_score}
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <div className="bg-black text-white p-8 md:p-12 text-center">
-
-                        {room.memory_status === "showing" && (
-                            <>
-                                <p className="text-gray-400 mb-6">
-                                    REMEMBER THIS!
-                                </p>
-
-                                <div className="flex justify-center gap-4 text-6xl">
-                                    {sequence.map(
-                                        (emoji, index) => (
-                                            <span key={index}>
-                                                {emoji}
-                                            </span>
-                                        )
-                                    )}
-                                </div>
-                            </>
-                        )}
-
-                        {room.memory_status === "waiting" && (
-                            <p className="text-4xl font-black">
-                                GET READY...
-                            </p>
-                        )}
-
-                        {room.memory_status === "playing" &&
-                            !myAnswer && (
-                                <>
-                                    <p className="text-xl font-bold mb-8">
-                                        REBUILD THE SEQUENCE 👇
-                                    </p>
-
-                                    <div className="min-h-20 flex justify-center items-center gap-3 mb-8">
-                                        {selected.map(
-                                            (emoji, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="text-4xl"
-                                                >
-                                                    {emoji}
-                                                </span>
-                                            )
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-5 gap-3 max-w-xl mx-auto">
-                                        {EMOJIS.map(
-                                            (emoji) => (
-                                                <button
-                                                    key={emoji}
-                                                    onClick={() =>
-                                                        handleEmojiClick(
-                                                            emoji
-                                                        )
-                                                    }
-                                                    className="bg-white text-black text-4xl p-4 hover:scale-105 transition"
-                                                >
-                                                    {emoji}
-                                                </button>
-                                            )
-                                        )}
-                                    </div>
-
-                                    <button
-                                        onClick={
-                                            handleMemorySubmit
-                                        }
-                                        disabled={
-                                            selected.length !==
-                                            sequence.length
-                                        }
-                                        className="mt-8 bg-[#6C4EFF] disabled:opacity-30 px-10 py-4 text-xl font-black"
-                                    >
-                                        SUBMIT
-                                    </button>
-                                </>
-                            )}
-
-                        {room.memory_status === "playing" &&
-                            myAnswer && (
-                                <div>
-                                    <p className="text-3xl font-black">
-                                        ANSWER SUBMITTED ✅
-                                    </p>
-
-                                    <p className="mt-4 text-gray-400">
-                                        Waiting for your opponent...
-                                    </p>
-                                </div>
-                            )}
-
-                        {room.memory_status === "finished" && (
-                            <div>
-
-                                <p className="text-5xl font-black">
-                                    {room.memory_winner === player
-                                        ? "YOU WIN! 🧠🔥"
-                                        : room.memory_winner === null
-                                            ? "DRAW! 🤝"
-                                            : "YOU LOSE 😭"}
-                                </p>
-
-                                <p className="mt-6 text-2xl font-black">
-                                    {room.player1_memory_score}
-                                    {" — "}
-                                    {room.player2_memory_score}
-                                </p>
-
-                            </div>
-                        )}
-
+                        <p className="text-2xl sm:text-3xl font-black">
+                            {room.memory_round}/5
+                        </p>
                     </div>
                 </div>
+
+                {/* SCORE */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-5 sm:mb-8">
+
+                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
+                        <p className="font-bold text-xs sm:text-base truncate">
+                            {room.player1_name}
+                        </p>
+
+                        <p className="text-3xl sm:text-4xl font-black">
+                            {room.player1_memory_score}
+                        </p>
+                    </div>
+
+                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
+                        <p className="font-bold text-xs sm:text-base truncate">
+                            {room.player2_name}
+                        </p>
+
+                        <p className="text-3xl sm:text-4xl font-black">
+                            {room.player2_memory_score}
+                        </p>
+                    </div>
+
+                </div>
+
+                {/* GAME AREA */}
+                <div className="bg-black text-white px-4 py-8 sm:p-12 text-center">
+
+                    {/* SHOWING */}
+                    {room.memory_status === "showing" && (
+                        <>
+                            <p className="text-gray-400 text-sm sm:text-base mb-5 sm:mb-6">
+                                REMEMBER THIS!
+                            </p>
+
+                            {/* Responsive sequence */}
+                            <div className="flex flex-wrap justify-center gap-2 sm:gap-4 max-w-full">
+                                {sequence.map((emoji, index) => (
+                                    <span
+                                        key={index}
+                                        className="text-4xl sm:text-6xl"
+                                    >
+                                        {emoji}
+                                    </span>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {/* WAITING */}
+                    {room.memory_status === "waiting" && (
+                        <div className="py-4 sm:py-8">
+                            <p className="text-2xl sm:text-4xl font-black">
+                                GET READY...
+                            </p>
+                        </div>
+                    )}
+
+                    {/* PLAYING */}
+                    {room.memory_status === "playing" && !myAnswer && (
+                        <>
+                            <p className="text-base sm:text-xl font-bold mb-5 sm:mb-8">
+                                REBUILD THE SEQUENCE 👇
+                            </p>
+
+                            {/* SELECTED EMOJIS */}
+                            <div className="min-h-[70px] sm:min-h-20 flex flex-wrap justify-center items-center gap-2 sm:gap-3 mb-6 sm:mb-8 px-2">
+                                {selected.map((emoji, index) => (
+                                    <span
+                                        key={index}
+                                        className="text-3xl sm:text-4xl"
+                                    >
+                                        {emoji}
+                                    </span>
+                                ))}
+                            </div>
+
+                            {/* EMOJI BUTTONS */}
+                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3 max-w-xl mx-auto">
+                                {EMOJIS.map((emoji) => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() =>
+                                            handleEmojiClick(emoji)
+                                        }
+                                        className="
+                                            bg-white
+                                            text-black
+                                            text-2xl
+                                            sm:text-4xl
+                                            p-3
+                                            sm:p-4
+                                            aspect-square
+                                            flex
+                                            items-center
+                                            justify-center
+                                            hover:scale-105
+                                            active:scale-95
+                                            transition
+                                        "
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* SUBMIT */}
+                            <button
+                                onClick={handleMemorySubmit}
+                                disabled={
+                                    selected.length !== sequence.length
+                                }
+                                className="
+                                    mt-6
+                                    sm:mt-8
+                                    bg-[#6C4EFF]
+                                    disabled:opacity-30
+                                    w-full
+                                    sm:w-auto
+                                    px-10
+                                    py-3
+                                    sm:py-4
+                                    text-lg
+                                    sm:text-xl
+                                    font-black
+                                    active:scale-95
+                                    transition
+                                "
+                            >
+                                SUBMIT
+                            </button>
+                        </>
+                    )}
+
+                    {/* ANSWER SUBMITTED */}
+                    {room.memory_status === "playing" && myAnswer && (
+                        <div className="py-4 sm:py-8">
+                            <p className="text-2xl sm:text-3xl font-black">
+                                ANSWER SUBMITTED ✅
+                            </p>
+
+                            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400">
+                                Waiting for your opponent...
+                            </p>
+                        </div>
+                    )}
+
+                    {/* FINISHED */}
+                    {room.memory_status === "finished" && (
+                        <div className="py-4 sm:py-8">
+
+                            <p className="text-3xl sm:text-5xl font-black leading-tight">
+                                {room.memory_winner === player
+                                    ? "YOU WIN! 🧠🔥"
+                                    : room.memory_winner === null
+                                        ? "DRAW! 🤝"
+                                        : "YOU LOSE 😭"}
+                            </p>
+
+                            <p className="mt-5 sm:mt-6 text-2xl sm:text-3xl font-black">
+                                {room.player1_memory_score}
+                                {" — "}
+                                {room.player2_memory_score}
+                            </p>
+
+                        </div>
+                    )}
+
+                </div>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
     // =====================================================
     // LEVEL 3 UI
