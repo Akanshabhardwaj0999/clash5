@@ -50,6 +50,68 @@ const REWARDS = [
     },
 ];
 
+const GAME_INFO = {
+    1: {
+        emoji: "⚡",
+        title: "REACTION DUEL",
+        description: "Test your reaction speed!",
+        howToPlay: [
+            "Wait for the screen to say NOW!",
+            "Click the button as fast as you can.",
+            "The player who clicks first wins the round.",
+            "Win the most rounds to win the game."
+        ],
+    },
+
+    2: {
+        emoji: "🧠",
+        title: "MEMORY CHAOS",
+        description: "Remember the emoji sequence!",
+        howToPlay: [
+            "Watch the emoji sequence carefully.",
+            "Remember the exact order.",
+            "Rebuild the same sequence.",
+            "The player with the most correct rounds wins."
+        ],
+    },
+
+    3: {
+        emoji: "🎯",
+        title: "TARGET SMASH",
+        description: "Find and smash the target first!",
+        howToPlay: [
+            "Wait for the target to appear.",
+            "Click the 🎯 as quickly as possible.",
+            "The fastest player wins the round.",
+            "Win the most rounds to win the game."
+        ],
+    },
+
+    4: {
+        emoji: "⚡",
+        title: "CALCULATION CLASH",
+        description: "Solve the calculation before your opponent!",
+        howToPlay: [
+            "A calculation will appear on screen.",
+            "Choose the correct answer.",
+            "The first player to select the correct answer wins.",
+            "Wrong answers do not give you a point."
+        ],
+    },
+
+    5: {
+        emoji: "❌⭕",
+        title: "TIC TAC TOE",
+        description: "Beat your opponent in Tic Tac Toe!",
+        howToPlay: [
+            "Player 1 starts with X.",
+            "Player 2 plays with O.",
+            "Take turns placing your symbol.",
+            "Get three symbols in a row to win."
+        ],
+    },
+};
+
 function Game() {
     const { roomCode } = useParams();
 
@@ -58,6 +120,21 @@ function Game() {
 
     const [selected, setSelected] = useState([]);
     const [mindSelected, setMindSelected] = useState(null);
+
+    // =====================================================
+    // LEVEL READY STATE
+    // =====================================================
+
+    // ready flags only count for the level they were set on
+    // (player1_ready/player2_ready are also set in the Lobby)
+    const readyForLevel =
+        !!room && room.ready_level === room.current_level;
+
+    const bothReady =
+        readyForLevel && !!room.player1_ready && !!room.player2_ready;
+
+    const iAmReady =
+        readyForLevel && !!room[`${player}_ready`];
 
     // =====================================================
     // PLAYER IDENTITY
@@ -113,7 +190,7 @@ function Game() {
 
         return () => {
             supabase.removeChannel(channel);
-        };
+        }; 
     }, [roomCode]);
 
     // =====================================================
@@ -125,6 +202,7 @@ function Game() {
 
         if (room.current_level !== 1) return;
         if (room.reaction_status !== "waiting") return;
+        if (!bothReady) return;
 
         const delay =
             Math.floor(Math.random() * 2000) + 2000;
@@ -225,6 +303,9 @@ function Game() {
                 .from("rooms")
                 .update({
                     current_level: 2,
+                    player1_ready: false,
+                    player2_ready: false,
+                    ready_level: 2,
 
                     player1_total_score:
                         (room.player1_total_score || 0) +
@@ -274,10 +355,17 @@ function Game() {
     // =====================================================
 
     useEffect(() => {
-        if (!room || player !== "player1") return;
 
-        if (room.current_level !== 2) return;
-        if (room.memory_status !== "waiting") return;
+
+        if (
+            !room ||
+            room.current_level !== 2 ||
+            room.memory_status !== "waiting" ||
+            player !== "player1" ||
+            !bothReady
+        ) {
+            return;
+        }
 
         const timer = setTimeout(async () => {
             const sequence = Array.from(
@@ -445,6 +533,9 @@ function Game() {
                 .from("rooms")
                 .update({
                     current_level: 3,
+                    player1_ready: false,
+                    player2_ready: false,
+                    ready_level: 3,
 
                     player1_total_score:
                         (room.player1_total_score || 0) +
@@ -521,6 +612,7 @@ function Game() {
         if (room.target_status !== "waiting") {
             return;
         }
+        if (!bothReady) return;
 
         const timer = setTimeout(async () => {
             const x =
@@ -666,6 +758,9 @@ function Game() {
                 .from("rooms")
                 .update({
                     current_level: 4,
+                    player1_ready: false,
+                    player2_ready: false,
+                    ready_level: 4,
 
                     player1_total_score:
                         (room.player1_total_score || 0) +
@@ -855,6 +950,7 @@ function Game() {
             return;
         }
 
+       if (!bothReady) return;
         const timer = setTimeout(async () => {
             await supabase
                 .from("rooms")
@@ -996,6 +1092,9 @@ function Game() {
                 .from("rooms")
                 .update({
                     current_level: 5,
+                    player1_ready: false,
+                    player2_ready: false,
+                    ready_level: 5,
 
                     player1_total_score:
                         (room.player1_total_score || 0) +
@@ -1101,6 +1200,7 @@ function Game() {
 
         if (room.current_level !== 5) return;
         if (room.bomb_status !== "waiting") return;
+       if (!bothReady) return;
 
         const timer = setTimeout(async () => {
             const { error } = await supabase
@@ -1427,6 +1527,7 @@ function Game() {
         }
     };
 
+
     // =====================================================
     // LOADING
     // =====================================================
@@ -1448,6 +1549,98 @@ function Game() {
     }
 
     // =====================================================
+    // GAME INTRO POPUP
+    // =====================================================
+
+    const handleReady = async () => {
+        // First click on a level whose flags are stale (e.g. level 1
+        // right after the Lobby): reset the other player's flag too.
+        const updateData = readyForLevel
+            ? { [`${player}_ready`]: true }
+            : {
+                  player1_ready: player === "player1",
+                  player2_ready: player === "player2",
+                  ready_level: room.current_level,
+              };
+
+        const { error } = await supabase
+            .from("rooms")
+            .update(updateData)
+            .eq("room_code", roomCode);
+
+        if (error) {
+            console.error("Error setting ready:", error);
+        }
+    };
+
+    const gameInfo = GAME_INFO[room.current_level];
+
+    const introPopup = !bothReady && gameInfo && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-[#F5F1E8] p-6 sm:p-8 shadow-2xl">
+                <div className="text-center">
+                    <div className="mb-3 text-4xl">
+                        {gameInfo.emoji}
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl font-black text-black">
+                        {gameInfo.title}
+                    </h2>
+
+                    <p className="mt-2 text-gray-600">
+                        {gameInfo.description}
+                    </p>
+                </div>
+
+                <div className="mt-6">
+                    <h3 className="mb-3 text-lg font-bold text-black">
+                        How to Play
+                    </h3>
+
+                    <div className="space-y-3">
+                        {gameInfo.howToPlay.map((item, index) => (
+                            <div
+                                key={index}
+                                className="flex items-start gap-3"
+                            >
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black text-xs font-bold text-white">
+                                    {index + 1}
+                                </span>
+
+                                <p className="text-sm sm:text-base text-gray-700">
+                                    {item}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="mt-8">
+                    {iAmReady ? (
+                        <div className="rounded-2xl bg-green-100 p-4 text-center">
+                            <p className="font-bold text-green-700">
+                                ✅ You're Ready!
+                            </p>
+
+                            <p className="mt-1 text-sm text-green-600">
+                                Waiting for the other player...
+                            </p>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleReady}
+                            className="w-full rounded-2xl bg-black px-6 py-4 text-base font-bold text-white transition hover:scale-[1.02]"
+                        >
+                            I'M READY 🎮
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+
+    // =====================================================
     // LEVEL 1 UI — REACTION DUEL
     // =====================================================
 
@@ -1460,6 +1653,8 @@ function Game() {
         return (
             <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
                 <div className="w-full max-w-5xl mx-auto">
+
+                    {introPopup}
 
                     {/* HEADER */}
                     <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">
@@ -1610,6 +1805,8 @@ function Game() {
         return (
             <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
                 <div className="w-full max-w-4xl mx-auto">
+
+                    {introPopup}
 
                     {/* HEADER */}
                     <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">
@@ -1822,6 +2019,7 @@ function Game() {
         return (
             <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
                 <div className="w-full max-w-5xl mx-auto">
+                    {introPopup}
 
                     {/* HEADER */}
                     <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">
@@ -1943,6 +2141,7 @@ function Game() {
         return (
             <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
                 <div className="w-full max-w-5xl mx-auto">
+                    {introPopup}
 
                     {/* HEADER */}
                     <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">
@@ -2165,6 +2364,7 @@ function Game() {
         return (
             <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
                 <div className="w-full max-w-4xl mx-auto">
+                    {introPopup}
 
                     {/* HEADER */}
                     <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">

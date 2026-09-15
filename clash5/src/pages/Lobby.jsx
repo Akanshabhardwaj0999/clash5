@@ -99,6 +99,9 @@ function Lobby() {
       .from("rooms")
       .update({
         game_started: true,
+          player1_ready: false,
+          player2_ready: false,
+          ready_level: 1,
       })
       .eq("id", room.id);
 
