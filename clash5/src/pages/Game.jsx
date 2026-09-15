@@ -2295,50 +2295,53 @@ function Game() {
                                     </p>
                                 </div>
 
+
                                 {/* BOARD */}
-                                <div className="grid grid-cols-3 gap-1.5 sm:gap-3 w-full max-w-[390px] aspect-square">
-                                    {board.map(
-                                        (cell, index) => (
-                                            <button
-                                                key={index}
-                                                type="button"
-                                                onClick={() =>
-                                                    handleTicTacToeMove(
-                                                        index
-                                                    )
+                                <div className="grid w-full max-w-[390px] grid-cols-3 grid-rows-3 gap-1.5 sm:gap-3 aspect-square">
+                                    {board.map((cell, index) => (
+                                        <button
+                                            key={index}
+                                            type="button"
+                                            onClick={() => handleTicTacToeMove(index)}
+                                            disabled={Boolean(cell) || !isMyTurn}
+                                            className={`
+                min-h-0
+                min-w-0
+                w-full
+                h-full
+                bg-white
+                text-black
+                border-2
+                sm:border-4
+                border-black
+                flex
+                items-center
+                justify-center
+                font-black
+                text-4xl
+                sm:text-6xl
+                md:text-7xl
+                touch-manipulation
+                select-none
+                transition-transform
+                duration-100
+
+                ${!cell && isMyTurn
+                                                    ? "cursor-pointer hover:bg-gray-200 active:scale-95"
+                                                    : "cursor-not-allowed"
                                                 }
-                                                disabled={
-                                                    Boolean(cell) ||
-                                                    !isMyTurn
-                                                }
-                                                className={`
-                                                    aspect-square
-                                                    bg-white
-                                                    text-black
-                                                    border-2
-                                                    sm:border-4
-                                                    border-black
-                                                    flex
-                                                    items-center
-                                                    justify-center
-                                                    text-4xl
-                                                    sm:text-6xl
-                                                    md:text-7xl
-                                                    font-black
-                                                    transition
-                                                    touch-manipulation
-                                                    ${!cell &&
-                                                        isMyTurn
-                                                        ? "hover:bg-gray-200 active:scale-95"
+
+                ${cell === "X"
+                                                    ? "text-black"
+                                                    : cell === "O"
+                                                        ? "text-[#6C4EFF]"
                                                         : ""
-                                                    }
-                                                    disabled:cursor-not-allowed
-                                                `}
-                                            >
-                                                {cell}
-                                            </button>
-                                        )
-                                    )}
+                                                }
+            `}
+                                        >
+                                            {cell}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 <div className="mt-5 text-center text-xs sm:text-sm text-gray-400">
