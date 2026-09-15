@@ -37,7 +37,7 @@ function Home() {
           <p className="mt-8 max-w-md text-base leading-7 text-gray-600">
             Five completely different challenges.
             One final winner.
-            And a reward for the loser.
+            And a reward for the Winer.
           </p>
 
           {/* Buttons */}

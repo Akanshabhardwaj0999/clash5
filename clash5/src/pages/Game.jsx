@@ -17,45 +17,37 @@ const EMOJIS = [
     "🦄",
 ];
 
-const BOMB_WIRES = [
-    "red",
-    "yellow",
-    "blue",
-    "green",
-    "purple",
-];
-
 const REWARDS = [
-  {
-    id: "pizza",
-    name: "Pizza 🍕",
-    description: "Winner gets a pizza treat!",
-  },
-  {
-    id: "coffee",
-    name: "Coffee ☕",
-    description: "Winner gets a coffee treat!",
-  },
-  {
-    id: "icecream",
-    name: "Ice Cream 🍦",
-    description: "Winner gets an ice cream!",
-  },
-  {
-    id: "movie",
-    name: "Movie 🎬",
-    description: "Winner gets a movie treat!",
-  },
-  {
-    id: "dinner",
-    name: "Dinner 🍽️",
-    description: "Winner gets a dinner treat!",
-  },
-  {
-    id: "200",
-    name: "₹200 💸",
-    description: "Winner gets ₹200!",
-  },
+    {
+        id: "pizza",
+        name: "Pizza 🍕",
+        description: "Winner gets a pizza treat!",
+    },
+    {
+        id: "coffee",
+        name: "Coffee ☕",
+        description: "Winner gets a coffee treat!",
+    },
+    {
+        id: "icecream",
+        name: "Ice Cream 🍦",
+        description: "Winner gets an ice cream!",
+    },
+    {
+        id: "movie",
+        name: "Movie 🎬",
+        description: "Winner gets a movie treat!",
+    },
+    {
+        id: "dinner",
+        name: "Dinner 🍽️",
+        description: "Winner gets a dinner treat!",
+    },
+    {
+        id: "200",
+        name: "₹200 💸",
+        description: "Winner gets ₹200!",
+    },
 ];
 
 function Game() {
@@ -66,7 +58,6 @@ function Game() {
 
     const [selected, setSelected] = useState([]);
     const [mindSelected, setMindSelected] = useState(null);
-    const [bombSelected, setBombSelected] = useState(null);
 
     // =====================================================
     // PLAYER IDENTITY
@@ -1126,338 +1117,264 @@ function Game() {
     }, [room?.mind_round]);
 
     // =====================================================
-    // LEVEL 5 — BOMB FINALE
+    // LEVEL 5 — TIC TAC TOE
     // =====================================================
 
-    // Start Bomb round
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
+    const EMPTY_BOARD = ["", "", "", "", "", "", "", "", ""];
 
-        if (room.current_level !== 5)
-            return;
+    const WINNING_PATTERNS = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6],
+    ];
 
-        if (
-            room.bomb_status !==
-            "waiting"
-        ) {
-            return;
+    const getTicTacToeWinner = (board) => {
+        for (const [a, b, c] of WINNING_PATTERNS) {
+            if (
+                board[a] &&
+                board[a] === board[b] &&
+                board[a] === board[c]
+            ) {
+                return board[a];
+            }
         }
 
-        const timer = setTimeout(
-            async () => {
-                const wires = [
-                    ...BOMB_WIRES,
-                ];
+        if (board.every(Boolean)) {
+            return "draw";
+        }
 
-                const correctWire =
-                    wires[
-                    Math.floor(
-                        Math.random() *
-                        wires.length
-                    )
-                    ];
+        return null;
+    };
 
-                await supabase
-                    .from("rooms")
-                    .update({
-                        bomb_wires:
-                            JSON.stringify(wires),
+    const getTicTacToeBoard = (value) => {
+        if (!value) return [...EMPTY_BOARD];
 
-                        bomb_correct_wire:
-                            correctWire,
+        try {
+            const parsed = JSON.parse(value);
 
-                        bomb_choice1: null,
-                        bomb_choice2: null,
+            if (
+                Array.isArray(parsed) &&
+                parsed.length === 9
+            ) {
+                return parsed.map((cell) =>
+                    cell === "X" || cell === "O" ? cell : ""
+                );
+            }
+        } catch (error) {
+            console.error("Invalid Tic Tac Toe board:", error);
+        }
 
-                        bomb_winner: null,
+        return [...EMPTY_BOARD];
+    };
 
-                        bomb_result_processed:
-                            false,
+    // Start a Tic Tac Toe round.
+    useEffect(() => {
+        if (!room || player !== "player1") return;
+        if (room.current_level !== 5) return;
+        if (room.bomb_status !== "waiting") return;
 
-                        bomb_status:
-                            "playing",
-                    })
-                    .eq("id", room.id)
-                    .eq(
-                        "bomb_status",
-                        "waiting"
-                    );
-            },
-            1000
-        );
+        const timer = setTimeout(async () => {
+            const { error } = await supabase
+                .from("rooms")
+                .update({
+                    // Reuse bomb_wires to store the Tic Tac Toe board.
+                    bomb_wires: JSON.stringify(EMPTY_BOARD),
+                    bomb_choice1: null,
+                    bomb_choice2: null,
+                    bomb_winner: null,
+                    bomb_result_processed: false,
+                    bomb_status: "playing",
+                })
+                .eq("id", room.id)
+                .eq("bomb_status", "waiting");
 
-        return () =>
-            clearTimeout(timer);
+            if (error) {
+                console.error("Tic Tac Toe start error:", error);
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
     }, [room, player]);
 
-    // Judge Bomb
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
+    // Handle a Tic Tac Toe move.
+    const handleTicTacToeMove = async (index) => {
+        if (!room || room.bomb_status !== "playing") return;
 
-        if (room.current_level !== 5)
-            return;
+        const board = getTicTacToeBoard(room.bomb_wires);
 
-        if (
-            room.bomb_status !==
-            "playing"
-        ) {
-            return;
-        }
+        // Do not allow a move on an occupied square.
+        if (board[index]) return;
 
-        if (
-            !room.bomb_choice1 ||
-            !room.bomb_choice2
-        ) {
-            return;
-        }
+        const filledCells = board.filter(Boolean).length;
+        const expectedPlayer =
+            filledCells % 2 === 0 ? "player1" : "player2";
 
-        if (
-            room.bomb_result_processed
-        ) {
-            return;
-        }
+        // Player 1 = X, Player 2 = O.
+        if (player !== expectedPlayer) return;
 
-        const player1Correct =
-            room.bomb_choice1 ===
-            room.bomb_correct_wire;
+        const symbol = player === "player1" ? "X" : "O";
+        const nextBoard = [...board];
+        nextBoard[index] = symbol;
 
-        const player2Correct =
-            room.bomb_choice2 ===
-            room.bomb_correct_wire;
-
-        let winner = null;
-
-        if (
-            player1Correct &&
-            !player2Correct
-        ) {
-            winner = "player1";
-        } else if (
-            !player1Correct &&
-            player2Correct
-        ) {
-            winner = "player2";
-        }
-
-        const player1Score =
-            room.player1_bomb_score +
-            (winner === "player1" ? 1 : 0);
-
-        const player2Score =
-            room.player2_bomb_score +
-            (winner === "player2" ? 1 : 0);
-
-        const processResult =
-            async () => {
-                await supabase
-                    .from("rooms")
-                    .update({
-                        bomb_winner:
-                            winner,
-
-                        bomb_result_processed:
-                            true,
-
-                        bomb_status:
-                            "finished",
-
-                        player1_bomb_score:
-                            player1Score,
-
-                        player2_bomb_score:
-                            player2Score,
-                    })
-                    .eq("id", room.id)
-                    .eq(
-                        "bomb_result_processed",
-                        false
-                    );
-            };
-
-        processResult();
-    }, [room, player]);
-
-    // Next Bomb round / FINAL
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
-
-        if (room.current_level !== 5)
-            return;
-
-        if (
-            room.bomb_status !==
-            "finished"
-        ) {
-            return;
-        }
-
-        if (
-            !room.bomb_result_processed
-        ) {
-            return;
-        }
-
-        const timer = setTimeout(
-            async () => {
-                if (
-                    room.bomb_round <
-                    TOTAL_ROUNDS
-                ) {
-                    await supabase
-                        .from("rooms")
-                        .update({
-                            bomb_round:
-                                room.bomb_round + 1,
-
-                            bomb_wires: null,
-                            bomb_correct_wire: null,
-
-                            bomb_choice1: null,
-                            bomb_choice2: null,
-
-                            bomb_winner: null,
-
-                            bomb_status:
-                                "waiting",
-
-                            bomb_result_processed:
-                                false,
-                        })
-                        .eq("id", room.id);
-
-                    return;
-                }
-
-                // =============================================
-                // BOMB FINALE COMPLETE
-                // Level 5 = 2 overall points
-                // =============================================
-
-                const bombWinner =
-                    room.player1_bomb_score >
-                        room.player2_bomb_score
-                        ? "player1"
-                        : room.player2_bomb_score >
-                            room.player1_bomb_score
-                            ? "player2"
-                            : null;
-
-                const player1Total =
-                    (room.player1_total_score ||
-                        0) +
-                    (bombWinner === "player1"
-                        ? 2
-                        : 0);
-
-                const player2Total =
-                    (room.player2_total_score ||
-                        0) +
-                    (bombWinner === "player2"
-                        ? 2
-                        : 0);
-
-                const finalWinner =
-                    player1Total > player2Total
-                        ? "player1"
-                        : player2Total > player1Total
-                            ? "player2"
-                            : "draw";
-
-                await supabase
-                    .from("rooms")
-                    .update({
-                        bomb_status: "final",
-                        player1_total_score: player1Total,
-                        player2_total_score: player2Total,
-                        final_winner: finalWinner,
-                        reward_status: "pending",
-                        selected_reward: null,
-                        reward_selected_by: null,
-                        bomb_result_processed: true,
-                    })
-                    .eq("id", room.id);
-            },
-            2000
-        );
-
-        return () =>
-            clearTimeout(timer);
-    }, [room, player]);
-
-    const handleBombChoice = async (
-        wire
-    ) => {
-        if (!room) return;
-
-        if (
-            room.bomb_status !==
-            "playing"
-        ) {
-            return;
-        }
-
-        const alreadySelected =
-            player === "player1"
-                ? room.bomb_choice1
-                : room.bomb_choice2;
-
-        if (
-            alreadySelected ||
-            bombSelected
-        ) {
-            return;
-        }
-
-        setBombSelected(wire);
-
-        const column =
+        const result = getTicTacToeWinner(nextBoard);
+        const choiceColumn =
             player === "player1"
                 ? "bomb_choice1"
                 : "bomb_choice2";
 
-        await supabase
+        const updateData = {
+            bomb_wires: JSON.stringify(nextBoard),
+            [choiceColumn]: String(index),
+        };
+
+        if (result === "X" || result === "O") {
+            const roundWinner =
+                result === "X" ? "player1" : "player2";
+
+            const player1Score =
+                (room.player1_bomb_score || 0) +
+                (roundWinner === "player1" ? 1 : 0);
+
+            const player2Score =
+                (room.player2_bomb_score || 0) +
+                (roundWinner === "player2" ? 1 : 0);
+
+            Object.assign(updateData, {
+                bomb_winner: roundWinner,
+                bomb_result_processed: true,
+                bomb_status: "finished",
+                player1_bomb_score: player1Score,
+                player2_bomb_score: player2Score,
+            });
+        } else if (result === "draw") {
+            Object.assign(updateData, {
+                bomb_winner: null,
+                bomb_result_processed: true,
+                bomb_status: "finished",
+            });
+        }
+
+        const { error } = await supabase
             .from("rooms")
-            .update({
-                [column]: wire,
-            })
-            .eq("id", room.id);
+            .update(updateData)
+            .eq("id", room.id)
+            .eq("bomb_status", "playing");
+
+        if (error) {
+            console.error("Tic Tac Toe move error:", error);
+        }
     };
 
+    // Move to the next Tic Tac Toe round or finish CLASH5.
     useEffect(() => {
-        setBombSelected(null);
-    }, [room?.bomb_round]);
+        if (!room || player !== "player1") return;
+        if (room.current_level !== 5) return;
+        if (room.bomb_status !== "finished") return;
+        if (!room.bomb_result_processed) return;
+
+        const timer = setTimeout(async () => {
+            if (room.bomb_round < TOTAL_ROUNDS) {
+                await supabase
+                    .from("rooms")
+                    .update({
+                        bomb_round: room.bomb_round + 1,
+                        bomb_wires: JSON.stringify(EMPTY_BOARD),
+                        bomb_choice1: null,
+                        bomb_choice2: null,
+                        bomb_winner: null,
+                        bomb_status: "waiting",
+                        bomb_result_processed: false,
+                    })
+                    .eq("id", room.id)
+                    .eq("bomb_status", "finished");
+
+                return;
+            }
+            // Level 5 winner gets exactly 1 overall point.
+            const level5Winner =
+                (room.player1_bomb_score || 0) >
+                    (room.player2_bomb_score || 0)
+                    ? "player1"
+                    : (room.player2_bomb_score || 0) >
+                        (room.player1_bomb_score || 0)
+                        ? "player2"
+                        : null;
+
+            // Every level is worth exactly 1 point.
+            const player1Total =
+                (room.player1_total_score || 0) +
+                (level5Winner === "player1" ? 1 : 0);
+
+            const player2Total =
+                (room.player2_total_score || 0) +
+                (level5Winner === "player2" ? 1 : 0);
+
+            // Final CLASH5 winner is based on LEVEL wins.
+            const finalWinner =
+                player1Total > player2Total
+                    ? "player1"
+                    : player2Total > player1Total
+                        ? "player2"
+                        : "draw";
+
+
+
+            const { error } = await supabase
+                .from("rooms")
+                .update({
+                    bomb_status: "final",
+                    player1_total_score: player1Total,
+                    player2_total_score: player2Total,
+                    final_winner: finalWinner,
+                    reward_status: "pending",
+                    selected_reward: null,
+                    reward_selected_by: null,
+                    bomb_result_processed: true,
+                })
+                .eq("id", room.id)
+                .eq("bomb_status", "finished");
+
+            if (error) {
+                console.error("CLASH5 final result error:", error);
+            }
+        }, 1800);
+
+        return () => clearTimeout(timer);
+    }, [room, player]);
 
     const handleRewardSelect = async (reward) => {
-  if (!room) return;
+        if (!room) return;
+        if (room.reward_status === "selected") return;
+        if (room.final_winner === "draw") return;
 
-  if (room.reward_status === "selected") {
-    return;
-  }
+        const loser =
+            room.final_winner === "player1"
+                ? "player2"
+                : room.final_winner === "player2"
+                    ? "player1"
+                    : null;
 
-  const loser =
-    room.final_winner === "player1"
-      ? "player2"
-      : room.final_winner === "player2"
-        ? "player1"
-        : null;
+        if (player !== loser) return;
 
-  if (player !== loser) {
-    return;
-  }
+        const { error } = await supabase
+            .from("rooms")
+            .update({
+                selected_reward: reward,
+                reward_selected_by: player,
+                reward_status: "selected",
+            })
+            .eq("id", room.id)
+            .eq("reward_status", "pending");
 
-  await supabase
-    .from("rooms")
-    .update({
-      selected_reward: reward,
-      reward_selected_by: player,
-      reward_status: "selected",
-    })
-    .eq("id", room.id)
-    .eq("reward_status", "pending");
-};
+        if (error) {
+            console.error("Reward selection error:", error);
+        }
+    };
 
     // =====================================================
     // LOADING
@@ -1607,369 +1524,310 @@ function Game() {
     // =====================================================
 
     if (room.current_level === 2) {
-    const sequence = room.memory_sequence
-        ? JSON.parse(room.memory_sequence)
-        : [];
+        const sequence =
+            room.memory_sequence
+                ? JSON.parse(
+                    room.memory_sequence
+                )
+                : [];
 
-    const myAnswer =
-        player === "player1"
-            ? room.memory_answer1
-            : room.memory_answer2;
+        const myAnswer =
+            player === "player1"
+                ? room.memory_answer1
+                : room.memory_answer2;
 
-    return (
-        <div className="min-h-screen bg-[#F5F1E8] px-3 py-4 sm:p-6">
-            <div className="max-w-4xl mx-auto">
+        return (
+            <div className="min-h-screen bg-[#F5F1E8] p-6">
+                <div className="max-w-4xl mx-auto">
 
-                {/* HEADER */}
-                <div className="flex items-start justify-between mb-6 sm:mb-10">
-                    <div>
-                        <h1 className="text-3xl sm:text-4xl font-black leading-none">
-                            CLASH5
-                        </h1>
+                    <div className="flex justify-between mb-10">
+                        <div>
+                            <h1 className="text-4xl font-black">
+                                CLASH5
+                            </h1>
 
-                        <p className="font-bold text-sm sm:text-base mt-1">
-                            🧠 MEMORY CHAOS
-                        </p>
-                    </div>
-
-                    <div className="text-right">
-                        <p className="text-xs sm:text-sm font-bold">
-                            ROUND
-                        </p>
-
-                        <p className="text-2xl sm:text-3xl font-black">
-                            {room.memory_round}/5
-                        </p>
-                    </div>
-                </div>
-
-                {/* SCORE */}
-                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-5 sm:mb-8">
-
-                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
-                        <p className="font-bold text-xs sm:text-base truncate">
-                            {room.player1_name}
-                        </p>
-
-                        <p className="text-3xl sm:text-4xl font-black">
-                            {room.player1_memory_score}
-                        </p>
-                    </div>
-
-                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
-                        <p className="font-bold text-xs sm:text-base truncate">
-                            {room.player2_name}
-                        </p>
-
-                        <p className="text-3xl sm:text-4xl font-black">
-                            {room.player2_memory_score}
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* GAME AREA */}
-                <div className="bg-black text-white px-4 py-8 sm:p-12 text-center">
-
-                    {/* SHOWING */}
-                    {room.memory_status === "showing" && (
-                        <>
-                            <p className="text-gray-400 text-sm sm:text-base mb-5 sm:mb-6">
-                                REMEMBER THIS!
-                            </p>
-
-                            {/* Responsive sequence */}
-                            <div className="flex flex-wrap justify-center gap-2 sm:gap-4 max-w-full">
-                                {sequence.map((emoji, index) => (
-                                    <span
-                                        key={index}
-                                        className="text-4xl sm:text-6xl"
-                                    >
-                                        {emoji}
-                                    </span>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {/* WAITING */}
-                    {room.memory_status === "waiting" && (
-                        <div className="py-4 sm:py-8">
-                            <p className="text-2xl sm:text-4xl font-black">
-                                GET READY...
+                            <p className="font-bold">
+                                🧠 MEMORY CHAOS
                             </p>
                         </div>
-                    )}
 
-                    {/* PLAYING */}
-                    {room.memory_status === "playing" && !myAnswer && (
-                        <>
-                            <p className="text-base sm:text-xl font-bold mb-5 sm:mb-8">
-                                REBUILD THE SEQUENCE 👇
+                        <div className="text-right">
+                            <p className="text-sm font-bold">
+                                ROUND
                             </p>
 
-                            {/* SELECTED EMOJIS */}
-                            <div className="min-h-[70px] sm:min-h-20 flex flex-wrap justify-center items-center gap-2 sm:gap-3 mb-6 sm:mb-8 px-2">
-                                {selected.map((emoji, index) => (
-                                    <span
-                                        key={index}
-                                        className="text-3xl sm:text-4xl"
-                                    >
-                                        {emoji}
-                                    </span>
-                                ))}
-                            </div>
-
-                            {/* EMOJI BUTTONS */}
-                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3 max-w-xl mx-auto">
-                                {EMOJIS.map((emoji) => (
-                                    <button
-                                        key={emoji}
-                                        onClick={() =>
-                                            handleEmojiClick(emoji)
-                                        }
-                                        className="
-                                            bg-white
-                                            text-black
-                                            text-2xl
-                                            sm:text-4xl
-                                            p-3
-                                            sm:p-4
-                                            aspect-square
-                                            flex
-                                            items-center
-                                            justify-center
-                                            hover:scale-105
-                                            active:scale-95
-                                            transition
-                                        "
-                                    >
-                                        {emoji}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* SUBMIT */}
-                            <button
-                                onClick={handleMemorySubmit}
-                                disabled={
-                                    selected.length !== sequence.length
-                                }
-                                className="
-                                    mt-6
-                                    sm:mt-8
-                                    bg-[#6C4EFF]
-                                    disabled:opacity-30
-                                    w-full
-                                    sm:w-auto
-                                    px-10
-                                    py-3
-                                    sm:py-4
-                                    text-lg
-                                    sm:text-xl
-                                    font-black
-                                    active:scale-95
-                                    transition
-                                "
-                            >
-                                SUBMIT
-                            </button>
-                        </>
-                    )}
-
-                    {/* ANSWER SUBMITTED */}
-                    {room.memory_status === "playing" && myAnswer && (
-                        <div className="py-4 sm:py-8">
-                            <p className="text-2xl sm:text-3xl font-black">
-                                ANSWER SUBMITTED ✅
-                            </p>
-
-                            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400">
-                                Waiting for your opponent...
+                            <p className="text-3xl font-black">
+                                {room.memory_round}/5
                             </p>
                         </div>
-                    )}
+                    </div>
 
-                    {/* FINISHED */}
-                    {room.memory_status === "finished" && (
-                        <div className="py-4 sm:py-8">
+                    <div className="grid grid-cols-2 gap-4 mb-8">
 
-                            <p className="text-3xl sm:text-5xl font-black leading-tight">
-                                {room.memory_winner === player
-                                    ? "YOU WIN! 🧠🔥"
-                                    : room.memory_winner === null
-                                        ? "DRAW! 🤝"
-                                        : "YOU LOSE 😭"}
+                        <div className="bg-white border-4 border-black p-5">
+                            <p className="font-bold">
+                                {room.player1_name}
                             </p>
 
-                            <p className="mt-5 sm:mt-6 text-2xl sm:text-3xl font-black">
+                            <p className="text-4xl font-black">
                                 {room.player1_memory_score}
-                                {" — "}
+                            </p>
+                        </div>
+
+                        <div className="bg-white border-4 border-black p-5">
+                            <p className="font-bold">
+                                {room.player2_name}
+                            </p>
+
+                            <p className="text-4xl font-black">
                                 {room.player2_memory_score}
                             </p>
-
                         </div>
-                    )}
 
+                    </div>
+
+                    <div className="bg-black text-white p-8 md:p-12 text-center">
+
+                        {room.memory_status === "showing" && (
+                            <>
+                                <p className="text-gray-400 mb-6">
+                                    REMEMBER THIS!
+                                </p>
+
+                                <div className="flex justify-center gap-4 text-6xl">
+                                    {sequence.map(
+                                        (emoji, index) => (
+                                            <span key={index}>
+                                                {emoji}
+                                            </span>
+                                        )
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {room.memory_status === "waiting" && (
+                            <p className="text-4xl font-black">
+                                GET READY...
+                            </p>
+                        )}
+
+                        {room.memory_status === "playing" &&
+                            !myAnswer && (
+                                <>
+                                    <p className="text-xl font-bold mb-8">
+                                        REBUILD THE SEQUENCE 👇
+                                    </p>
+
+                                    <div className="min-h-20 flex justify-center items-center gap-3 mb-8">
+                                        {selected.map(
+                                            (emoji, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="text-4xl"
+                                                >
+                                                    {emoji}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-5 gap-3 max-w-xl mx-auto">
+                                        {EMOJIS.map(
+                                            (emoji) => (
+                                                <button
+                                                    key={emoji}
+                                                    onClick={() =>
+                                                        handleEmojiClick(
+                                                            emoji
+                                                        )
+                                                    }
+                                                    className="bg-white text-black text-4xl p-4 hover:scale-105 transition"
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            )
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={
+                                            handleMemorySubmit
+                                        }
+                                        disabled={
+                                            selected.length !==
+                                            sequence.length
+                                        }
+                                        className="mt-8 bg-[#6C4EFF] disabled:opacity-30 px-10 py-4 text-xl font-black"
+                                    >
+                                        SUBMIT
+                                    </button>
+                                </>
+                            )}
+
+                        {room.memory_status === "playing" &&
+                            myAnswer && (
+                                <div>
+                                    <p className="text-3xl font-black">
+                                        ANSWER SUBMITTED ✅
+                                    </p>
+
+                                    <p className="mt-4 text-gray-400">
+                                        Waiting for your opponent...
+                                    </p>
+                                </div>
+                            )}
+
+                        {room.memory_status === "finished" && (
+                            <div>
+
+                                <p className="text-5xl font-black">
+                                    {room.memory_winner === player
+                                        ? "YOU WIN! 🧠🔥"
+                                        : room.memory_winner === null
+                                            ? "DRAW! 🤝"
+                                            : "YOU LOSE 😭"}
+                                </p>
+
+                                <p className="mt-6 text-2xl font-black">
+                                    {room.player1_memory_score}
+                                    {" — "}
+                                    {room.player2_memory_score}
+                                </p>
+
+                            </div>
+                        )}
+
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
 
     // =====================================================
     // LEVEL 3 UI
     // =====================================================
 
     if (room.current_level === 3) {
-    const myClick =
-        player === "player1"
-            ? room.target_click1
-            : room.target_click2;
+        const myClick =
+            player === "player1"
+                ? room.target_click1
+                : room.target_click2;
 
-    return (
-        <div className="min-h-screen bg-[#F5F1E8] px-3 py-4 sm:p-6">
-            <div className="max-w-5xl mx-auto">
+        return (
+            <div className="min-h-screen bg-[#F5F1E8] p-6">
+                <div className="max-w-5xl mx-auto">
 
-                {/* HEADER */}
-                <div className="flex justify-between items-start mb-5 sm:mb-8">
+                    <div className="flex justify-between items-center mb-8">
 
-                    <div>
-                        <h1 className="text-3xl sm:text-4xl font-black leading-none">
-                            CLASH5
-                        </h1>
+                        <div>
+                            <h1 className="text-4xl font-black">
+                                CLASH5
+                            </h1>
 
-                        <p className="font-bold text-sm sm:text-base mt-1">
-                            🎯 TARGET SMASH
-                        </p>
-                    </div>
+                            <p className="font-bold">
+                                🎯 TARGET SMASH
+                            </p>
+                        </div>
 
-                    <div className="text-right">
-                        <p className="text-xs sm:text-sm font-bold">
-                            ROUND
-                        </p>
-
-                        <p className="text-2xl sm:text-3xl font-black">
-                            {room.target_round}/5
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* SCORE */}
-                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
-
-                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-4">
-                        <p className="font-bold text-xs sm:text-base truncate">
-                            {room.player1_name}
-                        </p>
-
-                        <p className="text-3xl sm:text-4xl font-black">
-                            {room.player1_target_score}
-                        </p>
-                    </div>
-
-                    <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-4">
-                        <p className="font-bold text-xs sm:text-base truncate">
-                            {room.player2_name}
-                        </p>
-
-                        <p className="text-3xl sm:text-4xl font-black">
-                            {room.player2_target_score}
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* GAME AREA */}
-                <div
-                    className="
-                        relative
-                        bg-black
-                        w-full
-                        h-[65vh]
-                        min-h-[400px]
-                        max-h-[600px]
-                        overflow-hidden
-                    "
-                >
-
-                    {/* WAITING */}
-                    {room.target_status === "waiting" && (
-                        <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
-
-                            <p className="text-2xl sm:text-4xl font-black text-white">
-                                GET READY...
+                        <div className="text-right">
+                            <p className="text-sm font-bold">
+                                ROUND
                             </p>
 
+                            <p className="text-3xl font-black">
+                                {room.target_round}/5
+                            </p>
                         </div>
-                    )}
 
-                    {/* TARGET */}
-                    {room.target_status === "playing" &&
-                        !myClick && (
-                            <button
-                                onClick={handleTargetClick}
-                                aria-label="Hit target"
-                                className="
-                                    absolute
-                                    -translate-x-1/2
-                                    -translate-y-1/2
-                                    text-4xl
-                                    sm:text-5xl
-                                    p-2
-                                    touch-manipulation
-                                    hover:scale-125
-                                    active:scale-90
-                                    transition-transform
-                                "
-                                style={{
-                                    left: `${room.target_x}%`,
-                                    top: `${room.target_y}%`,
-                                }}
-                            >
-                                🎯
-                            </button>
-                        )}
+                    </div>
 
-                    {/* WAITING FOR OPPONENT */}
-                    {room.target_status === "playing" &&
-                        myClick && (
-                            <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
+                    <div className="grid grid-cols-2 gap-4 mb-6">
 
-                                <p className="text-xl sm:text-3xl font-black text-white leading-tight">
-                                    WAITING FOR
-                                    <br className="sm:hidden" />
-                                    {" "}OPPONENT...
+                        <div className="bg-white border-4 border-black p-4">
+                            <p className="font-bold">
+                                {room.player1_name}
+                            </p>
+
+                            <p className="text-4xl font-black">
+                                {room.player1_target_score}
+                            </p>
+                        </div>
+
+                        <div className="bg-white border-4 border-black p-4">
+                            <p className="font-bold">
+                                {room.player2_name}
+                            </p>
+
+                            <p className="text-4xl font-black">
+                                {room.player2_target_score}
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div className="relative bg-black w-full h-[550px] overflow-hidden">
+
+                        {room.target_status === "waiting" && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+
+                                <p className="text-white text-4xl font-black">
+                                    GET READY...
                                 </p>
 
                             </div>
                         )}
 
-                    {/* FINISHED */}
-                    {room.target_status === "finished" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-4 text-center">
+                        {room.target_status === "playing" &&
+                            !myClick && (
+                                <button
+                                    onClick={
+                                        handleTargetClick
+                                    }
+                                    className="absolute -translate-x-1/2 -translate-y-1/2 text-5xl hover:scale-125 transition-transform"
+                                    style={{
+                                        left: `${room.target_x}%`,
+                                        top: `${room.target_y}%`,
+                                    }}
+                                >
+                                    🎯
+                                </button>
+                            )}
 
-                            <p className="text-3xl sm:text-5xl font-black leading-tight">
-                                {room.target_winner === player
-                                    ? "YOU SMASHED IT! 🔥"
-                                    : "YOU LOST 😭"}
-                            </p>
+                        {room.target_status === "playing" &&
+                            myClick && (
+                                <div className="absolute inset-0 flex items-center justify-center">
 
-                            <p className="mt-4 sm:mt-6 text-xl sm:text-2xl font-black">
-                                {room.player1_target_score}
-                                {" — "}
-                                {room.player2_target_score}
-                            </p>
+                                    <p className="text-white text-3xl font-black">
+                                        WAITING FOR OPPONENT...
+                                    </p>
 
-                        </div>
-                    )}
+                                </div>
+                            )}
 
+                        {room.target_status === "finished" && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+
+                                <p className="text-5xl font-black">
+                                    {room.target_winner === player
+                                        ? "YOU SMASHED IT! 🔥"
+                                        : "YOU LOST 😭"}
+                                </p>
+
+                                <p className="mt-6 text-2xl font-black">
+                                    {room.player1_target_score}
+                                    {" — "}
+                                    {room.player2_target_score}
+                                </p>
+
+                            </div>
+                        )}
+
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
 
     // =====================================================
     // LEVEL 4 UI
@@ -2139,23 +1997,189 @@ function Game() {
     }
 
     // =====================================================
-    // LEVEL 5 UI — BOMB FINALE
+    // LEVEL 5 UI — TIC TAC TOE
     // =====================================================
 
-// =====================================================
-// LEVEL 5 UI — BOMB FINALE
-// =====================================================
+    if (room.current_level === 5 && room.bomb_status !== "final") {
+        const board = getTicTacToeBoard(room.bomb_wires);
+        const filledCells = board.filter(Boolean).length;
+        const currentTurn =
+            filledCells % 2 === 0 ? "player1" : "player2";
+        const isMyTurn = currentTurn === player;
+        const mySymbol = player === "player1" ? "X" : "O";
 
-if (room.current_level === 5) {
-    const myChoice =
-        player === "player1"
-            ? room.bomb_choice1
-            : room.bomb_choice2;
+        return (
+            <div className="min-h-screen bg-[#F5F1E8] p-4 sm:p-6">
+                <div className="max-w-4xl mx-auto">
+                    {/* HEADER */}
+                    <div className="flex justify-between items-center mb-6 sm:mb-10">
+                        <div>
+                            <h1 className="text-3xl sm:text-4xl font-black">
+                                CLASH5
+                            </h1>
+                            <p className="font-bold text-sm sm:text-base">
+                                ❌⭕ TIC TAC TOE
+                            </p>
+                        </div>
 
-    // ---------------------------------------------
-    // FINAL RESULT / REWARD SCREEN
-    // ---------------------------------------------
-    if (room.bomb_status === "final") {
+                        <div className="text-right">
+                            <p className="text-xs sm:text-sm font-bold">
+                                ROUND
+                            </p>
+                            <p className="text-2xl sm:text-3xl font-black">
+                                {room.bomb_round}/5
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* SCOREBOARD */}
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+                        <div
+                            className={`bg-white border-4 border-black p-4 sm:p-5 ${room.bomb_status === "playing" &&
+                                    currentTurn === "player1"
+                                    ? "ring-4 ring-black ring-offset-2"
+                                    : ""
+                                }`}
+                        >
+                            <div className="flex justify-between items-center gap-2">
+                                <p className="font-bold truncate">
+                                    {room.player1_name}
+                                </p>
+                                <span className="font-black text-xl">X</span>
+                            </div>
+                            <p className="text-4xl font-black mt-1">
+                                {room.player1_bomb_score || 0}
+                            </p>
+                        </div>
+
+                        <div
+                            className={`bg-white border-4 border-black p-4 sm:p-5 ${room.bomb_status === "playing" &&
+                                    currentTurn === "player2"
+                                    ? "ring-4 ring-black ring-offset-2"
+                                    : ""
+                                }`}
+                        >
+                            <div className="flex justify-between items-center gap-2">
+                                <p className="font-bold truncate">
+                                    {room.player2_name}
+                                </p>
+                                <span className="font-black text-xl">O</span>
+                            </div>
+                            <p className="text-4xl font-black mt-1">
+                                {room.player2_bomb_score || 0}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* GAME */}
+                    <div className="bg-black text-white p-5 sm:p-8 md:p-10">
+                        {room.bomb_status === "waiting" && (
+                            <div className="min-h-[420px] flex flex-col items-center justify-center text-center">
+                                <p className="text-7xl sm:text-8xl mb-5">
+                                    ❌⭕
+                                </p>
+                                <p className="text-3xl sm:text-5xl font-black">
+                                    GET READY...
+                                </p>
+                                <p className="mt-4 text-gray-400">
+                                    Player 1 starts with X
+                                </p>
+                            </div>
+                        )}
+
+                        {room.bomb_status === "playing" && (
+                            <div className="flex flex-col items-center">
+                                <div className="text-center mb-6">
+                                    <p className="text-xs sm:text-sm uppercase tracking-widest text-gray-400">
+                                        Your symbol
+                                    </p>
+                                    <p className="text-3xl font-black mt-1">
+                                        {mySymbol}
+                                    </p>
+                                    <p className="mt-3 text-lg sm:text-xl font-bold">
+                                        {isMyTurn
+                                            ? "YOUR TURN — MAKE A MOVE 👇"
+                                            : `${currentTurn === "player1"
+                                                ? room.player1_name
+                                                : room.player2_name
+                                            }'s turn...`}
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-[420px] aspect-square">
+                                    {board.map((cell, index) => (
+                                        <button
+                                            key={index}
+                                            type="button"
+                                            onClick={() =>
+                                                handleTicTacToeMove(index)
+                                            }
+                                            disabled={
+                                                Boolean(cell) || !isMyTurn
+                                            }
+                                            className={`aspect-square bg-white text-black border-2 sm:border-4 border-black flex items-center justify-center text-5xl sm:text-7xl font-black transition ${!cell && isMyTurn
+                                                    ? "hover:bg-gray-200 hover:scale-[1.02]"
+                                                    : ""
+                                                } disabled:cursor-not-allowed`}
+                                        >
+                                            {cell}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="mt-6 text-center text-sm text-gray-400">
+                                    <span className="font-bold text-white">
+                                        X
+                                    </span>{" "}
+                                    {room.player1_name} ·{" "}
+                                    <span className="font-bold text-white">
+                                        O
+                                    </span>{" "}
+                                    {room.player2_name}
+                                </div>
+                            </div>
+                        )}
+
+                        {room.bomb_status === "finished" && (
+                            <div className="min-h-[420px] flex flex-col items-center justify-center text-center">
+                                <p className="text-7xl mb-5">
+                                    {room.bomb_winner === player
+                                        ? "🏆"
+                                        : room.bomb_winner === null
+                                            ? "🤝"
+                                            : "😭"}
+                                </p>
+
+                                <p className="text-3xl sm:text-5xl font-black">
+                                    {room.bomb_winner === player
+                                        ? "YOU WIN THIS ROUND! 🔥"
+                                        : room.bomb_winner === null
+                                            ? "DRAW! 🤝"
+                                            : "YOU LOSE THIS ROUND 😭"}
+                                </p>
+
+                                <p className="mt-6 text-2xl sm:text-3xl font-black">
+                                    {room.player1_bomb_score || 0}
+                                    {" — "}
+                                    {room.player2_bomb_score || 0}
+                                </p>
+
+                                <p className="mt-4 text-gray-400">
+                                    Next round starting soon...
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // =====================================================
+    // CLASH5 FINAL + REWARD SCREEN
+    // =====================================================
+
+    if (room.current_level === 5 && room.bomb_status === "final") {
         const winner =
             room.final_winner === "player1"
                 ? room.player1_name
@@ -2170,92 +2194,78 @@ if (room.current_level === 5) {
                     ? room.player1_name
                     : null;
 
-        const isWinner =
-            room.final_winner === player;
-
+        const isWinner = room.final_winner === player;
         const isLoser =
             room.final_winner !== "draw" &&
             room.final_winner !== player;
 
         return (
-            <div className="min-h-screen bg-[#F5F1E8] p-6">
+            <div className="min-h-screen bg-[#F5F1E8] p-4 sm:p-6">
                 <div className="max-w-4xl mx-auto">
-
-                    <div className="text-center mb-10">
-                        <p className="text-sm font-bold uppercase tracking-widest">
-                            💣 CLASH5 COMPLETE
+                    <div className="text-center mb-8 sm:mb-10">
+                        <p className="text-xs sm:text-sm font-bold uppercase tracking-widest">
+                            🏆 CLASH5 COMPLETE
                         </p>
-
-                        <h1 className="text-6xl font-black mt-3">
+                        <h1 className="text-5xl sm:text-6xl font-black mt-3">
                             CLASH5
                         </h1>
                     </div>
 
-                    <div className="bg-black text-white p-8 md:p-12 text-center">
-
+                    <div className="bg-black text-white p-6 sm:p-8 md:p-12 text-center">
                         {room.final_winner === "draw" ? (
                             <>
-                                <p className="text-8xl mb-6">
+                                <p className="text-7xl sm:text-8xl mb-5">
                                     🤝
                                 </p>
-
-                                <h2 className="text-5xl font-black">
+                                <h2 className="text-4xl sm:text-5xl font-black">
                                     IT'S A DRAW!
                                 </h2>
-
-                                <p className="text-xl mt-5 text-gray-400">
+                                <p className="text-lg mt-4 text-gray-400">
                                     Both players fought hard!
                                 </p>
                             </>
                         ) : (
                             <>
-                                <p className="text-8xl mb-6">
+                                <p className="text-7xl sm:text-8xl mb-5">
                                     🏆
                                 </p>
-
-                                <p className="text-sm uppercase tracking-widest text-gray-400">
-                                    WINNER
+                                <p className="text-xs sm:text-sm uppercase tracking-widest text-gray-400">
+                                    ULTIMATE WINNER
                                 </p>
-
-                                <h2 className="text-5xl md:text-6xl font-black mt-3">
+                                <h2 className="text-4xl sm:text-6xl font-black mt-3 break-words">
                                     {winner}
                                 </h2>
-
-                                <p className="text-2xl mt-4">
+                                <p className="text-xl sm:text-2xl mt-4">
                                     CONGRATULATIONS! 🎉
                                 </p>
                             </>
                         )}
 
-                        {/* SCORE */}
-                        <div className="grid grid-cols-2 gap-5 max-w-xl mx-auto mt-10">
-
-                            <div className="bg-white text-black p-6">
-                                <p className="font-bold">
+                        {/* FINAL SCORE */}
+                        <div className="grid grid-cols-2 gap-3 sm:gap-5 max-w-xl mx-auto mt-8 sm:mt-10">
+                            <div className="bg-white text-black p-4 sm:p-6">
+                                <p className="font-bold truncate">
                                     {room.player1_name}
                                 </p>
-
-                                <p className="text-6xl font-black mt-2">
-                                    {room.player1_total_score}
+                                <p className="text-5xl sm:text-6xl font-black mt-2">
+                                    {room.player1_total_score || 0}
                                 </p>
                             </div>
 
-                            <div className="bg-white text-black p-6">
-                                <p className="font-bold">
+                            <div className="bg-white text-black p-4 sm:p-6">
+                                <p className="font-bold truncate">
                                     {room.player2_name}
                                 </p>
-
-                                <p className="text-6xl font-black mt-2">
-                                    {room.player2_total_score}
+                                <p className="text-5xl sm:text-6xl font-black mt-2">
+                                    {room.player2_total_score || 0}
                                 </p>
                             </div>
-
                         </div>
 
                         {/* DRAW */}
                         {room.final_winner === "draw" && (
-                            <div className="mt-10">
-                                <p className="text-xl font-bold">
+                            <div className="mt-8 sm:mt-10 border-t border-gray-700 pt-8">
+                                <p className="text-lg sm:text-xl font-bold">
                                     Nobody owes anyone anything 😎
                                 </p>
                             </div>
@@ -2264,15 +2274,14 @@ if (room.current_level === 5) {
                         {/* LOSER */}
                         {isLoser &&
                             room.reward_status === "pending" && (
-                                <div className="mt-12 border-t border-gray-700 pt-10">
-
-                                    <p className="text-3xl font-black">
+                                <div className="mt-10 sm:mt-12 border-t border-gray-700 pt-8 sm:pt-10">
+                                    <p className="text-2xl sm:text-3xl font-black">
                                         {loser}, you lost 😈
                                     </p>
 
-                                    <p className="text-xl mt-4">
-                                        Now you have to decide what
-                                        you want to give{" "}
+                                    <p className="text-lg sm:text-xl mt-4">
+                                        Now you have to decide what you want
+                                        to give{" "}
                                         <span className="font-black">
                                             {winner}
                                         </span>
@@ -2280,301 +2289,105 @@ if (room.current_level === 5) {
                                     </p>
 
                                     <button
-                                        onClick={() =>
+                                        type="button"
+                                        onClick={() => {
                                             document
                                                 .getElementById("reward-list")
                                                 ?.scrollIntoView({
                                                     behavior: "smooth",
-                                                })
-                                        }
-                                        className="mt-8 bg-white text-black px-8 py-4 font-black text-lg hover:scale-105 transition"
+                                                });
+                                        }}
+                                        className="mt-7 bg-white text-black px-7 py-4 font-black text-base sm:text-lg hover:scale-105 transition"
                                     >
                                         CHECK REWARDS 🎁
                                     </button>
 
                                     <div
                                         id="reward-list"
-                                        className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4"
+                                        className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4"
                                     >
                                         {REWARDS.map((reward) => (
                                             <button
                                                 key={reward.id}
+                                                type="button"
                                                 onClick={() =>
                                                     handleRewardSelect(
                                                         reward.name
                                                     )
                                                 }
-                                                className="bg-white text-black p-6 text-left border-4 border-white hover:bg-gray-200 transition"
+                                                className="bg-white text-black p-5 sm:p-6 text-left border-4 border-white hover:bg-gray-200 transition"
                                             >
-                                                <p className="text-2xl font-black">
+                                                <p className="text-xl sm:text-2xl font-black">
                                                     {reward.name}
                                                 </p>
-
                                                 <p className="text-gray-600 mt-2">
                                                     {reward.description}
                                                 </p>
                                             </button>
                                         ))}
                                     </div>
-
                                 </div>
                             )}
 
-                        {/* LOSER WAITING */}
+                        {/* LOSER AFTER SELECTING */}
                         {isLoser &&
                             room.reward_status === "selected" && (
-                                <div className="mt-12 border-t border-gray-700 pt-10">
-
+                                <div className="mt-10 sm:mt-12 border-t border-gray-700 pt-8 sm:pt-10">
                                     <p className="text-3xl font-black">
                                         Reward selected! 🎁
                                     </p>
-
                                     <p className="mt-4 text-gray-400">
-                                        Waiting for {winner} to see
-                                        their reward...
+                                        Waiting for {winner} to see their reward...
                                     </p>
-
                                 </div>
                             )}
 
                         {/* WINNER WAITING */}
                         {isWinner &&
                             room.reward_status === "pending" && (
-                                <div className="mt-12 border-t border-gray-700 pt-10">
-
+                                <div className="mt-10 sm:mt-12 border-t border-gray-700 pt-8 sm:pt-10">
                                     <p className="text-3xl font-black">
                                         You won! 🏆
                                     </p>
-
-                                    <p className="mt-4 text-xl">
+                                    <p className="mt-4 text-lg sm:text-xl">
                                         {loser} is deciding your reward 😈
                                     </p>
-
                                     <p className="mt-3 text-gray-400">
                                         Wait for your surprise...
                                     </p>
-
                                 </div>
                             )}
 
                         {/* WINNER RECEIVES REWARD */}
                         {isWinner &&
                             room.reward_status === "selected" && (
-                                <div className="mt-12 border-t border-gray-700 pt-10">
-
-                                    <p className="text-6xl mb-5">
+                                <div className="mt-10 sm:mt-12 border-t border-gray-700 pt-8 sm:pt-10">
+                                    <p className="text-5xl sm:text-6xl mb-5">
                                         🎉🎁🎉
                                     </p>
-
-                                    <p className="text-2xl text-gray-400">
+                                    <p className="text-xl text-gray-400">
                                         CONGRATULATIONS!
                                     </p>
-
-                                    <h3 className="text-4xl font-black mt-4">
+                                    <h3 className="text-3xl sm:text-4xl font-black mt-4">
                                         You got
                                     </h3>
-
-                                    <p className="text-5xl font-black mt-5">
+                                    <p className="text-4xl sm:text-5xl font-black mt-5 break-words">
                                         {room.selected_reward}
                                     </p>
-
-                                    <p className="mt-6 text-xl">
+                                    <p className="mt-6 text-lg sm:text-xl">
                                         From{" "}
                                         <span className="font-black">
                                             {loser}
-                                        </span>
+                                        </span>{" "}
                                         ❤️
                                     </p>
-
                                 </div>
                             )}
-
                     </div>
                 </div>
             </div>
         );
     }
-
-    // ---------------------------------------------
-    // BOMB GAME SCREEN
-    // ---------------------------------------------
-
-    return (
-        <div className="min-h-screen bg-[#F5F1E8] p-6">
-
-            <div className="max-w-5xl mx-auto">
-
-                {/* HEADER */}
-                <div className="flex justify-between items-center mb-8">
-
-                    <div>
-                        <h1 className="text-4xl font-black">
-                            CLASH5
-                        </h1>
-
-                        <p className="font-bold">
-                            💣 BOMB FINALE
-                        </p>
-                    </div>
-
-                    <div className="text-right">
-                        <p className="text-sm font-bold">
-                            ROUND
-                        </p>
-
-                        <p className="text-3xl font-black">
-                            {room.bomb_round}/5
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* SCORES */}
-                <div className="grid grid-cols-2 gap-4 mb-8">
-
-                    <div className="bg-white border-4 border-black p-5">
-                        <p className="font-bold">
-                            {room.player1_name}
-                        </p>
-
-                        <p className="text-4xl font-black">
-                            {room.player1_bomb_score}
-                        </p>
-                    </div>
-
-                    <div className="bg-white border-4 border-black p-5">
-                        <p className="font-bold">
-                            {room.player2_name}
-                        </p>
-
-                        <p className="text-4xl font-black">
-                            {room.player2_bomb_score}
-                        </p>
-                    </div>
-
-                </div>
-
-                {/* GAME AREA */}
-                <div className="bg-black text-white p-8 md:p-12 text-center">
-
-                    {/* WAITING */}
-                    {room.bomb_status === "waiting" && (
-                        <div>
-
-                            <p className="text-8xl mb-6">
-                                💣
-                            </p>
-
-                            <p className="text-5xl font-black">
-                                GET READY...
-                            </p>
-
-                            <p className="mt-4 text-gray-400">
-                                Choose the correct wire!
-                            </p>
-
-                        </div>
-                    )}
-
-                    {/* PLAYING */}
-                    {room.bomb_status === "playing" && (
-                        <div>
-
-                            <p className="text-5xl mb-4">
-                                💣
-                            </p>
-
-                            <p className="text-3xl font-black">
-                                CUT THE WIRE!
-                            </p>
-
-                            <p className="text-gray-400 mt-3">
-                                Choose carefully...
-                            </p>
-
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 max-w-3xl mx-auto mt-10">
-
-                                {BOMB_WIRES.map((wire) => (
-                                    <button
-                                        key={wire}
-                                        onClick={() =>
-                                            handleBombChoice(wire)
-                                        }
-                                        disabled={!!myChoice}
-                                        className={`
-                                            p-6 text-white font-black uppercase
-                                            border-4 border-white
-                                            transition hover:scale-105
-                                            disabled:opacity-40
-                                            ${wire === "red"
-                                                ? "bg-red-500"
-                                                : wire === "yellow"
-                                                    ? "bg-yellow-400 text-black"
-                                                    : wire === "blue"
-                                                        ? "bg-blue-500"
-                                                        : wire === "green"
-                                                            ? "bg-green-500"
-                                                            : "bg-purple-500"
-                                            }
-                                        `}
-                                    >
-                                        {wire}
-                                    </button>
-                                ))}
-
-                            </div>
-
-                            {myChoice && (
-                                <div className="mt-10">
-
-                                    <p className="text-3xl font-black">
-                                        WIRE SELECTED 🔒
-                                    </p>
-
-                                    <p className="mt-3 text-gray-400">
-                                        Waiting for your opponent...
-                                    </p>
-
-                                </div>
-                            )}
-
-                        </div>
-                    )}
-
-                    {/* ROUND RESULT */}
-                    {room.bomb_status === "finished" && (
-                        <div>
-
-                            <p className="text-6xl mb-6">
-                                💥
-                            </p>
-
-                            <p className="text-4xl font-black">
-                                {room.bomb_winner === player
-                                    ? "YOU WIN! 🔥"
-                                    : room.bomb_winner === null
-                                        ? "DRAW! 🤝"
-                                        : "YOU LOSE 😭"}
-                            </p>
-
-                            <p className="mt-6 text-2xl font-black">
-                                {room.player1_bomb_score}
-                                {" — "}
-                                {room.player2_bomb_score}
-                            </p>
-
-                        </div>
-                    )}
-
-                </div>
-
-            </div>
-
-        </div>
-    );
-}
-
-return null;
 
     return null;
 }
