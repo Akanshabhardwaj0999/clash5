@@ -190,7 +190,7 @@ function Game() {
 
         return () => {
             supabase.removeChannel(channel);
-        }; 
+        };
     }, [roomCode]);
 
     // =====================================================
@@ -950,7 +950,7 @@ function Game() {
             return;
         }
 
-       if (!bothReady) return;
+        if (!bothReady) return;
         const timer = setTimeout(async () => {
             await supabase
                 .from("rooms")
@@ -1127,16 +1127,7 @@ function Game() {
     // LEVEL 5 — TIC TAC TOE
     // =====================================================
 
-    const EMPTY_BOARD = [
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-    ];
+    const EMPTY_BOARD = Array(9).fill("");
 
     const WINNING_PATTERNS = [
         [0, 1, 2],
@@ -1200,7 +1191,7 @@ function Game() {
 
         if (room.current_level !== 5) return;
         if (room.bomb_status !== "waiting") return;
-       if (!bothReady) return;
+        if (!bothReady) return;
 
         const timer = setTimeout(async () => {
             const { error } = await supabase
@@ -1234,124 +1225,117 @@ function Game() {
     }, [room, player]);
 
     const handleTicTacToeMove = async (index) => {
-        if (
-            !room ||
-            room.bomb_status !== "playing"
-        ) {
-            return;
-        }
+    if (!room) return;
 
-        const board =
-            getTicTacToeBoard(
-                room.bomb_wires
-            );
+    if (room.current_level !== 5) return;
 
-        if (board[index]) return;
+    if (room.bomb_status !== "playing") return;
 
-        const filledCells =
-            board.filter(Boolean).length;
+    const board = getTicTacToeBoard(room.bomb_wires);
 
-        const expectedPlayer =
-            filledCells % 2 === 0
+    // Cell already occupied
+    if (board[index]) return;
+
+    // Determine whose turn it is
+    const filledCells = board.filter(Boolean).length;
+
+    const expectedPlayer =
+        filledCells % 2 === 0
+            ? "player1"
+            : "player2";
+
+    // Not my turn
+    if (player !== expectedPlayer) {
+        console.log("Not your turn", {
+            player,
+            expectedPlayer,
+            filledCells,
+        });
+        return;
+    }
+
+    const symbol =
+        player === "player1"
+            ? "X"
+            : "O";
+
+    const nextBoard = [...board];
+
+    nextBoard[index] = symbol;
+
+    const result =
+        getTicTacToeWinner(nextBoard);
+
+    const choiceColumn =
+        player === "player1"
+            ? "bomb_choice1"
+            : "bomb_choice2";
+
+    const updateData = {
+        bomb_wires: JSON.stringify(nextBoard),
+
+        [choiceColumn]: String(index),
+    };
+
+    // PLAYER WINS
+    if (result === "X" || result === "O") {
+
+        const roundWinner =
+            result === "X"
                 ? "player1"
                 : "player2";
 
-        if (player !== expectedPlayer) {
-            return;
-        }
+        const player1Score =
+            (room.player1_bomb_score || 0) +
+            (roundWinner === "player1" ? 1 : 0);
 
-        const symbol =
-            player === "player1"
-                ? "X"
-                : "O";
+        const player2Score =
+            (room.player2_bomb_score || 0) +
+            (roundWinner === "player2" ? 1 : 0);
 
-        const nextBoard = [...board];
+        Object.assign(updateData, {
+            bomb_winner: roundWinner,
 
-        nextBoard[index] = symbol;
+            bomb_result_processed: true,
 
-        const result =
-            getTicTacToeWinner(
-                nextBoard
-            );
+            bomb_status: "finished",
 
-        const choiceColumn =
-            player === "player1"
-                ? "bomb_choice1"
-                : "bomb_choice2";
+            player1_bomb_score: player1Score,
 
-        const updateData = {
-            bomb_wires:
-                JSON.stringify(nextBoard),
+            player2_bomb_score: player2Score,
+        });
+    }
 
-            [choiceColumn]: String(index),
-        };
+    // DRAW
+    else if (result === "draw") {
 
-        if (
-            result === "X" ||
-            result === "O"
-        ) {
-            const roundWinner =
-                result === "X"
-                    ? "player1"
-                    : "player2";
+        Object.assign(updateData, {
+            bomb_winner: null,
 
-            const player1Score =
-                (room.player1_bomb_score || 0) +
-                (roundWinner === "player1"
-                    ? 1
-                    : 0);
+            bomb_result_processed: true,
 
-            const player2Score =
-                (room.player2_bomb_score || 0) +
-                (roundWinner === "player2"
-                    ? 1
-                    : 0);
+            bomb_status: "finished",
+        });
+    }
 
-            Object.assign(updateData, {
-                bomb_winner:
-                    roundWinner,
+    const { data, error } =
+        await supabase
+            .from("rooms")
+            .update(updateData)
+            .eq("id", room.id)
+            .eq("bomb_status", "playing")
+            .select();
 
-                bomb_result_processed:
-                    true,
+    if (error) {
+        console.error(
+            "Tic Tac Toe move error:",
+            error
+        );
+        return;
+    }
 
-                bomb_status:
-                    "finished",
-
-                player1_bomb_score:
-                    player1Score,
-
-                player2_bomb_score:
-                    player2Score,
-            });
-        } else if (result === "draw") {
-            Object.assign(updateData, {
-                bomb_winner: null,
-
-                bomb_result_processed:
-                    true,
-
-                bomb_status:
-                    "finished",
-            });
-        }
-
-        const { error } =
-            await supabase
-                .from("rooms")
-                .update(updateData)
-                .eq("id", room.id)
-                .eq(
-                    "bomb_status",
-                    "playing"
-                );
-
-        if (error) {
-            console.error(
-                "Tic Tac Toe move error:",
-                error
-            );
-        }
-    };
+    console.log("Move saved:", data);
+};
 
     useEffect(() => {
         if (!room || player !== "player1") {
@@ -1558,10 +1542,10 @@ function Game() {
         const updateData = readyForLevel
             ? { [`${player}_ready`]: true }
             : {
-                  player1_ready: player === "player1",
-                  player2_ready: player === "player2",
-                  ready_level: room.current_level,
-              };
+                player1_ready: player === "player1",
+                player2_ready: player === "player2",
+                ready_level: room.current_level,
+            };
 
         const { error } = await supabase
             .from("rooms")
@@ -2497,7 +2481,8 @@ function Game() {
 
 
                                 {/* BOARD */}
-                                <div className="grid w-full max-w-[390px] grid-cols-3 grid-rows-3 gap-1.5 sm:gap-3 aspect-square">
+                                {/* BOARD */}
+                                <div className="grid w-full max-w-[390px] grid-cols-3 gap-2 sm:gap-3">
                                     {board.map((cell, index) => (
                                         <button
                                             key={index}
@@ -2505,10 +2490,8 @@ function Game() {
                                             onClick={() => handleTicTacToeMove(index)}
                                             disabled={Boolean(cell) || !isMyTurn}
                                             className={`
-                min-h-0
-                min-w-0
+                aspect-square
                 w-full
-                h-full
                 bg-white
                 text-black
                 border-2
