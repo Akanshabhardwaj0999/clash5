@@ -837,284 +837,260 @@ function Game() {
     };
 
     // =====================================================
-    // LEVEL 4 — MIND GAME
+    // LEVEL 4 — CALCULATION CLASH
     // =====================================================
-
-    // Start Mind round
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
-
-        if (room.current_level !== 4)
-            return;
-
-        if (
-            room.mind_status !==
-            "waiting"
-        ) {
-            return;
+    const TOTAL_ROUNDS = 5;
+    // Generate a deterministic random number from a string.
+    // This makes sure BOTH players generate the same question
+    // without storing the question in Supabase.
+    const seededRandom = (seed) => {
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) {
+            hash = (hash << 5) - hash + seed.charCodeAt(i);
+            hash |= 0;
         }
+        const x = Math.sin(hash) * 10000;
+        return x - Math.floor(x);
+    };
 
-        const timer = setTimeout(
-            async () => {
-                await supabase
-                    .from("rooms")
-                    .update({
-                        mind_option1: null,
-                        mind_option2: null,
-
-                        mind_winning_option: null,
-                        mind_winner: null,
-
-                        mind_result_processed:
-                            false,
-
-                        mind_status: "playing",
-                    })
-                    .eq("id", room.id)
-                    .eq(
-                        "mind_status",
-                        "waiting"
-                    );
-            },
-            1000
-        );
-
-        return () =>
-            clearTimeout(timer);
-    }, [room, player]);
-
-    // Judge Mind
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
-
-        if (room.current_level !== 4)
-            return;
-
-        if (
-            room.mind_status !==
-            "playing"
-        ) {
-            return;
-        }
-
-        if (
-            !room.mind_option1 ||
-            !room.mind_option2
-        ) {
-            return;
-        }
-
-        if (
-            room.mind_result_processed
-        ) {
-            return;
-        }
-
-        const options = [
-            "red",
-            "blue",
-        ];
-
-        const winningOption =
-            options[
+    // Generate calculation for current room + round
+    const generateCalculation = (roomId, round) => {
+        const seed = `${roomId}-${round}`;
+        const random1 = seededRandom(`${seed}-a`);
+        const random2 = seededRandom(`${seed}-b`);
+        const operatorRandom = seededRandom(`${seed}-operator`);
+        let num1 = Math.floor(random1 * 100) + 1;
+        let num2 = Math.floor(random2 * 100) + 1;
+        const operators = ["+", "-", "*"];
+        const operator =
+            operators[
             Math.floor(
-                Math.random() *
-                options.length
+                operatorRandom * operators.length
             )
             ];
-
-        let winner = null;
-
-        if (
-            room.mind_option1 ===
-            winningOption &&
-            room.mind_option2 !==
-            winningOption
-        ) {
-            winner = "player1";
-        } else if (
-            room.mind_option2 ===
-            winningOption &&
-            room.mind_option1 !==
-            winningOption
-        ) {
-            winner = "player2";
+        // For subtraction, keep the answer positive
+        if (operator === "-" && num2 > num1) {
+            [num1, num2] = [num2, num1];
         }
+        let answer;
+        if (operator === "+") {
+            answer = num1 + num2;
+        }
+        if (operator === "-") {
+            answer = num1 - num2;
+        }
+        if (operator === "*") {
+            answer = num1 * num2;
+        }
+        return {
+            num1,
+            num2,
+            operator,
+            answer,
+            question: `${num1} ${operator} ${num2}`,
+        };
+    };
 
+    // Generate 3 answer options
+    const generateOptions = (roomId, round, answer) => {
+        const options = new Set();
+        // Always include correct answer
+        options.add(answer);
+        let counter = 1;
+        while (options.size < 3) {
+            const random =
+                seededRandom(
+                    `${roomId}-${round}-option-${counter}`
+                );
+            // Difference between 1 and 20
+            const difference =
+                Math.floor(random * 20) + 1;
+            const wrongAnswer =
+                counter % 2 === 0
+                    ? answer + difference
+                    : Math.max(0, answer - difference);
+            options.add(wrongAnswer);
+            counter++;
+        }
+        return Array.from(options).sort(
+            () => Math.random() - 0.5
+        );
+    };
+
+    // Current calculation for this round
+    const calculation =
+        room
+            ? generateCalculation(
+                room.id,
+                room.mind_round
+            )
+            : null;
+    const answerOptions =
+        room && calculation
+            ? generateOptions(
+                room.id,
+                room.mind_round,
+                calculation.answer
+            )
+            : [];
+
+    // Start round
+    useEffect(() => {
+        if (!room || player !== "player1") {
+            return;
+        }
+        if (room.current_level !== 4) {
+            return;
+        }
+        if (room.mind_status !== "waiting") {
+            return;
+        }
+        const timer = setTimeout(async () => {
+            await supabase
+                .from("rooms")
+                .update({
+                    mind_option1: null,
+                    mind_option2: null,
+                    mind_winning_option: null,
+                    mind_winner: null,
+                    mind_result_processed: false,
+                    mind_status: "playing",
+                })
+                .eq("id", room.id)
+                .eq("mind_status", "waiting");
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [room, player]);
+
+    // =====================================================
+    // CALCULATION ANSWER
+    // =====================================================
+    const handleCalculationAnswer = async (selectedAnswer) => {
+        if (!room) return;
+        if (room.mind_status !== "playing") {
+            return;
+        }
+        if (mindSelected !== null) {
+            return;
+        }
+        const correctAnswer = calculation?.answer;
+        if (selectedAnswer !== correctAnswer) {
+            // Wrong answer:
+            // allow player to try again
+            setMindSelected(`wrong-${selectedAnswer}`);
+            setTimeout(() => {
+                setMindSelected(null);
+            }, 400);
+            return;
+        }
+        // Correct answer
+        setMindSelected(selectedAnswer);
+        const winner = player;
         const player1Score =
             room.player1_mind_score +
             (winner === "player1" ? 1 : 0);
-
         const player2Score =
             room.player2_mind_score +
             (winner === "player2" ? 1 : 0);
-
-        const processResult =
-            async () => {
-                await supabase
-                    .from("rooms")
-                    .update({
-                        mind_winning_option:
-                            winningOption,
-
-                        mind_winner: winner,
-
-                        mind_result_processed:
-                            true,
-
-                        mind_status:
-                            "finished",
-
-                        player1_mind_score:
-                            player1Score,
-
-                        player2_mind_score:
-                            player2Score,
-                    })
-                    .eq("id", room.id)
-                    .eq(
-                        "mind_result_processed",
-                        false
-                    );
-            };
-
-        processResult();
-    }, [room, player]);
-
-    // Move Mind / Level 5
-    useEffect(() => {
-        if (!room || player !== "player1")
-            return;
-
-        if (room.current_level !== 4)
-            return;
-
-        if (
-            room.mind_status !==
-            "finished"
-        ) {
-            return;
-        }
-
-        if (
-            !room.mind_result_processed
-        ) {
-            return;
-        }
-
-        const timer = setTimeout(
-            async () => {
-                if (
-                    room.mind_round <
-                    TOTAL_ROUNDS
-                ) {
-                    await supabase
-                        .from("rooms")
-                        .update({
-                            mind_round:
-                                room.mind_round + 1,
-
-                            mind_option1: null,
-                            mind_option2: null,
-
-                            mind_winning_option:
-                                null,
-
-                            mind_winner: null,
-
-                            mind_status:
-                                "waiting",
-
-                            mind_result_processed:
-                                false,
-                        })
-                        .eq("id", room.id);
-
-                    return;
-                }
-
-                const levelWinner =
-                    room.player1_mind_score >
-                        room.player2_mind_score
-                        ? "player1"
-                        : room.player2_mind_score >
-                            room.player1_mind_score
-                            ? "player2"
-                            : null;
-
-                await supabase
-                    .from("rooms")
-                    .update({
-                        current_level: 5,
-
-                        player1_total_score:
-                            (room.player1_total_score ||
-                                0) +
-                            (levelWinner === "player1"
-                                ? 1
-                                : 0),
-
-                        player2_total_score:
-                            (room.player2_total_score ||
-                                0) +
-                            (levelWinner === "player2"
-                                ? 1
-                                : 0),
-
-                        mind_round: 1,
-
-                        mind_status:
-                            "waiting",
-
-                        mind_winner:
-                            levelWinner,
-
-                        mind_result_processed:
-                            false,
-                    })
-                    .eq("id", room.id);
-            },
-            1800
-        );
-
-        return () =>
-            clearTimeout(timer);
-    }, [room, player]);
-
-    const handleMindChoice = async (
-        choice
-    ) => {
-        if (!room) return;
-
-        if (
-            room.mind_status !==
-            "playing"
-        ) {
-            return;
-        }
-
-        if (mindSelected) return;
-
-        setMindSelected(choice);
-
-        const column =
-            player === "player1"
-                ? "mind_option1"
-                : "mind_option2";
-
+        // Reuse existing Supabase columns
+        // mind_winning_option = correct answer
+        // mind_winner = player who answered first
         await supabase
             .from("rooms")
             .update({
-                [column]: choice,
+                mind_winning_option: String(
+                    correctAnswer
+                ),
+                mind_winner: winner,
+                mind_result_processed: true,
+                mind_status: "finished",
+                player1_mind_score: player1Score,
+                player2_mind_score: player2Score,
             })
-            .eq("id", room.id);
+            .eq("id", room.id)
+            .eq("mind_status", "playing")
+            .eq("mind_result_processed", false);
     };
 
+    // Reset selected answer whenever round changes
     useEffect(() => {
         setMindSelected(null);
     }, [room?.mind_round]);
+
+    // =====================================================
+    // MOVE TO NEXT ROUND / LEVEL 5
+    // =====================================================
+    useEffect(() => {
+        if (!room || player !== "player1") {
+            return;
+        }
+        if (room.current_level !== 4) {
+            return;
+        }
+        if (room.mind_status !== "finished") {
+            return;
+        }
+        if (!room.mind_result_processed) {
+            return;
+        }
+        const timer = setTimeout(async () => {
+            // ---------------------------------------------
+            // NEXT ROUND
+            // ---------------------------------------------
+            if (room.mind_round < TOTAL_ROUNDS) {
+                await supabase
+                    .from("rooms")
+                    .update({
+                        mind_round:
+                            room.mind_round + 1,
+                        mind_option1: null,
+                        mind_option2: null,
+                        mind_winning_option: null,
+                        mind_winner: null,
+                        mind_status: "waiting",
+                        mind_result_processed: false,
+                    })
+                    .eq("id", room.id);
+                return;
+            }
+
+            // ---------------------------------------------
+            // AFTER ROUND 5 → LEVEL 5
+            // ---------------------------------------------
+            const levelWinner =
+                room.player1_mind_score >
+                    room.player2_mind_score
+                    ? "player1"
+                    : room.player2_mind_score >
+                        room.player1_mind_score
+                        ? "player2"
+                        : null;
+
+            await supabase
+                .from("rooms")
+                .update({
+                    current_level: 5,
+                    player1_total_score:
+                        (room.player1_total_score || 0) +
+                        (levelWinner === "player1"
+                            ? 1
+                            : 0),
+                    player2_total_score:
+                        (room.player2_total_score || 0) +
+                        (levelWinner === "player2"
+                            ? 1
+                            : 0),
+                    mind_round: 1,
+                    mind_status: "waiting",
+                    mind_winner: levelWinner,
+                    mind_result_processed: false,
+                })
+                .eq("id", room.id);
+        }, 1800);
+        return () => clearTimeout(timer);
+    }, [room, player]);
+
+
 
     // =====================================================
     // LEVEL 5 — TIC TAC TOE
@@ -1829,173 +1805,327 @@ function Game() {
         );
     }
 
-    // =====================================================
-    // LEVEL 4 UI
-    // =====================================================
+   
 
-    if (room.current_level === 4) {
-        const myOption =
-            player === "player1"
-                ? room.mind_option1
-                : room.mind_option2;
+//    LEVEL 4 UI — CALCULATION CLASH UI
 
+
+     if (room.current_level === 3) {
         return (
-            <div className="min-h-screen bg-[#F5F1E8] p-6">
-                <div className="max-w-4xl mx-auto">
+            <div className="min-h-screen bg-[#F5F1E8] px-3 py-4 sm:px-6 sm:py-6">
+                <div className="max-w-5xl mx-auto">
 
-                    <div className="flex justify-between items-center mb-10">
-
+                    {/* HEADER */}
+                    <div className="flex items-center justify-between mb-5 sm:mb-8">
                         <div>
-                            <h1 className="text-4xl font-black">
-                                CLASH5
-                            </h1>
+                            <p className="text-xs sm:text-sm font-black tracking-widest">
 
-                            <p className="font-bold">
-                                🧙 MIND GAME
+                                CLASH5
                             </p>
+                            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black">
+
+                                ⚡ CALCULATION CLASH
+                            </h1>
                         </div>
 
                         <div className="text-right">
-                            <p className="text-sm font-bold">
+                            <p className="text-[10px] sm:text-sm font-bold">
+
                                 ROUND
                             </p>
+                            <p className="text-2xl sm:text-4xl font-black">
 
-                            <p className="text-3xl font-black">
                                 {room.mind_round}/5
                             </p>
                         </div>
-
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-8">
 
-                        <div className="bg-white border-4 border-black p-5">
-                            <p className="font-bold">
+                    {/* SCOREBOARD */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-8">
+
+                        {/* PLAYER 1 */}
+                        <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
+                            <p className="text-xs sm:text-base font-bold truncate">
+
                                 {room.player1_name}
                             </p>
+                            <p className="text-3xl sm:text-5xl font-black">
 
-                            <p className="text-4xl font-black">
                                 {room.player1_mind_score}
                             </p>
                         </div>
 
-                        <div className="bg-white border-4 border-black p-5">
-                            <p className="font-bold">
+
+                        {/* PLAYER 2 */}
+                        <div className="bg-white border-3 sm:border-4 border-black p-3 sm:p-5">
+                            <p className="text-xs sm:text-base font-bold truncate">
+
                                 {room.player2_name}
                             </p>
+                            <p className="text-3xl sm:text-5xl font-black">
 
-                            <p className="text-4xl font-black">
                                 {room.player2_mind_score}
                             </p>
                         </div>
-
                     </div>
 
-                    <div className="bg-black text-white p-10 md:p-16 text-center">
+
+                    {/* GAME AREA */}
+                    <div className="bg-black text-white px-4 py-8 sm:p-10 md:p-16 text-center">
+
+
+                        {/* WAITING */}
 
                         {room.mind_status === "waiting" && (
-                            <p className="text-4xl font-black">
-                                GET READY...
-                            </p>
+                            <div>
+                                <div className="text-5xl sm:text-7xl mb-5">
+
+                                    🧠
+                                </div>
+                                <p className="text-2xl sm:text-4xl font-black">
+
+                                    GET READY...
+                                </p>
+                                <p className="text-gray-400 mt-3 text-sm sm:text-base">
+
+                                    Next calculation is coming!
+                                </p>
+                            </div>
+
                         )}
 
-                        {room.mind_status === "playing" &&
-                            !myOption && (
-                                <>
-                                    <p className="text-gray-400 uppercase tracking-widest mb-4">
-                                        Choose your side
-                                    </p>
 
-                                    <h2 className="text-4xl font-black mb-10">
-                                        RED OR BLUE?
+                        {/* PLAYING */}
+
+                        {room.mind_status === "playing" && calculation && (
+                            <div>
+                                <p className="text-gray-400 uppercase tracking-widest text-xs sm:text-sm mb-3">
+
+                                    Solve this first
+                                </p>
+
+
+                                {/* QUESTION */}
+                                <div className="mb-8 sm:mb-12">
+                                    <h2 className="
+
+                                text-5xl
+
+                                sm:text-6xl
+
+                                md:text-8xl
+
+                                font-black
+
+                                tracking-tight
+
+                                break-words
+
+                            ">
+
+                                        {calculation.num1}
+
+                                        {" "}
+
+                                        {calculation.operator === "*"
+
+                                            ? "×"
+
+                                            : calculation.operator}
+
+                                        {" "}
+
+                                        {calculation.num2}
                                     </h2>
+                                    <div className="w-24 sm:w-32 h-1 bg-white mx-auto mt-5" />
+                                    <p className="text-gray-400 text-xs sm:text-sm mt-4">
 
-                                    <div className="grid grid-cols-2 gap-5 max-w-lg mx-auto">
-
-                                        <button
-                                            onClick={() =>
-                                                handleMindChoice(
-                                                    "red"
-                                                )
-                                            }
-                                            className="bg-red-500 hover:scale-105 transition p-10 text-3xl font-black"
-                                        >
-                                            🔴 RED
-                                        </button>
-
-                                        <button
-                                            onClick={() =>
-                                                handleMindChoice(
-                                                    "blue"
-                                                )
-                                            }
-                                            className="bg-blue-500 hover:scale-105 transition p-10 text-3xl font-black"
-                                        >
-                                            🔵 BLUE
-                                        </button>
-
-                                    </div>
-                                </>
-                            )}
-
-                        {room.mind_status === "playing" &&
-                            myOption && (
-                                <div>
-
-                                    <p className="text-5xl mb-5">
-                                        {myOption === "red"
-                                            ? "🔴"
-                                            : "🔵"}
+                                        PICK THE CORRECT ANSWER
                                     </p>
-
-                                    <p className="text-3xl font-black">
-                                        CHOICE LOCKED 🔒
-                                    </p>
-
-                                    <p className="mt-4 text-gray-400">
-                                        Waiting for your opponent...
-                                    </p>
-
                                 </div>
-                            )}
+
+
+                                {/* OPTIONS */}
+                                <div className="
+
+                            grid
+
+                            grid-cols-1
+
+                            sm:grid-cols-3
+
+                            gap-3
+
+                            sm:gap-5
+
+                            max-w-3xl
+
+                            mx-auto
+
+                        ">
+
+                                    {answerOptions.map((option) => {
+
+                                        const isWrong =
+
+                                            mindSelected ===
+
+                                            `wrong-${option}`;
+
+                                        const isSelected =
+
+                                            mindSelected === option;
+
+                                        return (
+                                            <button
+
+                                                key={option}
+
+                                                disabled={
+
+                                                    mindSelected !== null &&
+
+                                                    !isWrong
+
+                                                }
+
+                                                onClick={() =>
+
+                                                    handleCalculationAnswer(
+
+                                                        option
+
+                                                    )
+
+                                                }
+
+                                                className={`
+
+                                            w-full
+
+                                            min-h-[72px]
+
+                                            sm:min-h-[110px]
+
+                                            px-4
+
+                                            py-4
+
+                                            sm:py-6
+
+                                            border-4
+
+                                            border-white
+
+                                            text-3xl
+
+                                            sm:text-4xl
+
+                                            md:text-5xl
+
+                                            font-black
+
+                                            transition-all
+
+                                            active:scale-95
+
+                                            ${isWrong
+
+                                                        ? "bg-red-500 scale-95"
+
+                                                        : isSelected
+
+                                                            ? "bg-green-500"
+
+                                                            : "bg-white text-black hover:bg-gray-200 hover:scale-105"
+
+                                                    }
+
+                                        `}
+                                            >
+
+                                                {option}
+                                            </button>
+
+                                        );
+
+                                    })}
+                                </div>
+
+
+                                {/* PLAYER STATUS */}
+                                <p className="text-gray-400 text-xs sm:text-sm mt-6">
+
+                                    ⚡ FIRST CORRECT ANSWER WINS
+                                </p>
+                            </div>
+
+                        )}
+
+
+                        {/* FINISHED */}
 
                         {room.mind_status === "finished" && (
                             <div>
+                                <div className="text-5xl sm:text-7xl mb-5">
 
-                                <p className="text-gray-400 uppercase tracking-widest mb-4">
-                                    Winning side
+                                    🏆
+                                </div>
+
+                                <p className="text-gray-400 uppercase tracking-widest text-xs sm:text-sm mb-3">
+
+                                    Correct Answer
                                 </p>
 
-                                <p className="text-6xl mb-8">
-                                    {room.mind_winning_option ===
-                                        "red"
-                                        ? "🔴 RED"
-                                        : "🔵 BLUE"}
+                                <p className="text-5xl sm:text-7xl font-black mb-8">
+
+                                    {room.mind_winning_option}
                                 </p>
 
-                                <p className="text-4xl font-black">
+                                <p className="
+
+                            text-3xl
+
+                            sm:text-5xl
+
+                            font-black
+
+                        ">
+
                                     {room.mind_winner === player
+
                                         ? "YOU WIN! 🔥"
-                                        : room.mind_winner === null
-                                            ? "DRAW! 🤝"
-                                            : "YOU LOSE 😭"}
+
+                                        : "YOU LOSE 😭"}
                                 </p>
 
-                                <p className="mt-6 text-2xl font-black">
+                                <p className="
+
+                            mt-5
+
+                            text-xl
+
+                            sm:text-3xl
+
+                            font-black
+
+                        ">
+
                                     {room.player1_mind_score}
+
                                     {" — "}
+
                                     {room.player2_mind_score}
                                 </p>
-
                             </div>
-                        )}
 
+                        )}
                     </div>
                 </div>
             </div>
-        );
-    }
-
+        )}
+     
     // =====================================================
     // LEVEL 5 UI — TIC TAC TOE
     // =====================================================
@@ -2036,9 +2166,9 @@ function Game() {
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
                         <div
                             className={`bg-white border-4 border-black p-4 sm:p-5 ${room.bomb_status === "playing" &&
-                                    currentTurn === "player1"
-                                    ? "ring-4 ring-black ring-offset-2"
-                                    : ""
+                                currentTurn === "player1"
+                                ? "ring-4 ring-black ring-offset-2"
+                                : ""
                                 }`}
                         >
                             <div className="flex justify-between items-center gap-2">
@@ -2054,9 +2184,9 @@ function Game() {
 
                         <div
                             className={`bg-white border-4 border-black p-4 sm:p-5 ${room.bomb_status === "playing" &&
-                                    currentTurn === "player2"
-                                    ? "ring-4 ring-black ring-offset-2"
-                                    : ""
+                                currentTurn === "player2"
+                                ? "ring-4 ring-black ring-offset-2"
+                                : ""
                                 }`}
                         >
                             <div className="flex justify-between items-center gap-2">
@@ -2118,8 +2248,8 @@ function Game() {
                                                 Boolean(cell) || !isMyTurn
                                             }
                                             className={`aspect-square bg-white text-black border-2 sm:border-4 border-black flex items-center justify-center text-5xl sm:text-7xl font-black transition ${!cell && isMyTurn
-                                                    ? "hover:bg-gray-200 hover:scale-[1.02]"
-                                                    : ""
+                                                ? "hover:bg-gray-200 hover:scale-[1.02]"
+                                                : ""
                                                 } disabled:cursor-not-allowed`}
                                         >
                                             {cell}
